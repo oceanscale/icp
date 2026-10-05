@@ -39,7 +39,7 @@ export declare function CreativeCard(props: CreativeCardProps): React.ReactEleme
 export interface NoteProps { title?: string; pin?: 'blue' | 'green'; tilt?: boolean; className?: string; children?: React.ReactNode }
 export declare function Note(props: NoteProps): React.ReactElement;
 
-export interface ClueStep { id?: string; label: string; state?: 'done' | 'current' | 'locked'; code?: string; active?: boolean }
+export interface ClueStep { id?: string; label: string; state?: 'done' | 'current' | 'locked'; code?: string; active?: boolean; bonus?: boolean }
 export interface ClueTrackProps { steps: ClueStep[]; title?: string; level?: string; xp?: number; nextXp?: number | null; onStep?: (id: string | number) => void; className?: string }
 export declare function ClueTrack(props: ClueTrackProps): React.ReactElement;
 

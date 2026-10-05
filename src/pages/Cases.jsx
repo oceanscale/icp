@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, CaseFile, CheckMark, Field, Stamp } from '../ds/index.jsx';
+import { PASTAS } from '../../shared/game.js';
 import { api } from '../lib/api.js';
 import { pad3 } from '../lib/format.js';
 import { navigate } from '../lib/nav.js';
@@ -123,7 +124,7 @@ export default function Cases({ user }) {
           <button key={p.id} type="button" className="case-card dq-case" onClick={() => navigate(`#/caso/${p.id}`)}>
             <div className="case-card-top">
               <span className="dq-label">Caso Nº {pad3(p.number)}</span>
-              {p.resolved >= 8 ? <Stamp tone="green">Resolvido</Stamp> : null}
+              {p.resolved >= PASTAS.length ? <Stamp tone="green">Resolvido</Stamp> : null}
             </div>
             <h2 className="case-card-name">{p.name}</h2>
             <p className="muted small">{[p.segment, p.city].filter(Boolean).join(' · ') || 'Sem segmento'}</p>

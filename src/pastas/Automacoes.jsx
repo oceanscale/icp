@@ -13,6 +13,48 @@ export const CATEGORIAS = {
   servico: { label: 'Atendimento (janela 24 h)', tone: 'dq-chip-green' },
 };
 
+const VAR_LABEL = {
+  nome_lead: 'nome do lead',
+  empresa_lead: 'empresa do lead',
+  nome_vendedor: 'nome de quem envia',
+  empresa_vendedor: 'sua empresa',
+  data: 'data',
+  horario: 'horário',
+  link: 'link',
+  outro: 'variável',
+};
+
+function varValue(v, ctx) {
+  const map = { nome_lead: ctx.lead, empresa_lead: ctx.leadCompany, nome_vendedor: ctx.seller, empresa_vendedor: ctx.company, data: '15/10', horario: '14h', link: 'link' };
+  return v.exemplo || map[v.tipo] || `variável ${v.numero}`;
+}
+
+const varsOf = (t) =>
+  Object.fromEntries(
+    (t.variaveis?.length ? t.variaveis : [{ numero: 1, tipo: 'nome_lead' }, { numero: 2, tipo: 'nome_vendedor' }]).map((v) => [String(v.numero), v]),
+  );
+
+/** Mostra o template com os nomes no lugar de {{1}}, {{2}}: em negrito e entre chaves. A cópia mantém o padrão da Meta. */
+function TemplateText({ t, ctx }) {
+  const vars = varsOf(t);
+  return t.texto.split(/(\{\{\d+\}\})/).map((part, i) => {
+    const m = /^\{\{(\d+)\}\}$/.exec(part);
+    if (!m) return part;
+    const v = vars[m[1]] || { numero: Number(m[1]), tipo: 'outro' };
+    return (
+      <b key={i} className="tpl-var" title={`{{${m[1]}}} = ${VAR_LABEL[v.tipo] || 'variável'}`}>
+        {`{${varValue(v, ctx)}}`}
+      </b>
+    );
+  });
+}
+
+function legend(t) {
+  const used = [...new Set((t.texto.match(/\{\{\d+\}\}/g) || []).map((x) => x.replace(/\D/g, '')))];
+  const vars = varsOf(t);
+  return used.map((n) => `{{${n}}} = ${VAR_LABEL[vars[n]?.tipo] || 'variável'}`).join(' · ');
+}
+
 /** Quantas mensagens pagas de cada categoria um lead recebe nesta cadência (usado pelo simulador). */
 export function mensagensPorLead(auto) {
   const byName = Object.fromEntries((auto?.templates || []).map((t) => [t.nome, t]));
@@ -27,11 +69,18 @@ export function mensagensPorLead(auto) {
   return out;
 }
 
-export default function Automacoes({ data, line, lineId, onUpdate }) {
+export default function Automacoes({ data, line, lineId, onUpdate, user }) {
   const pid = data.project.id;
   const a = data.docs[lineId]?.automacoes?.data;
   const title = `Automações · ${line.data?.nome || ''}`;
   const pagas = a ? mensagensPorLead(a) : null;
+  const icp = data.docs[lineId]?.icp?.data;
+  const ctx = {
+    lead: (icp?.persona?.nome || 'Nome do lead').split(',')[0].trim(),
+    leadCompany: icp?.principal?.nome_perfil || 'Empresa do lead',
+    seller: (user?.name || 'Seu nome').split(' ')[0],
+    company: data.project.name,
+  };
 
   const html = () =>
     `<p>${esc(a.visao)}</p><h2>Cadência</h2>${table(['Dia', 'Canal', 'Ação', 'Objetivo', 'Template'], a.cadencia.map((c) => [c.dia, c.canal, c.acao, c.objetivo, c.template]))}
@@ -43,25 +92,17 @@ export default function Automacoes({ data, line, lineId, onUpdate }) {
   return (
     <div className="pasta">
       <PastaHead
-        code="07"
+        code="08"
         title={title}
         actions={
           a ? (
             <Downloads
               onPdf={() => printDocument({ title, subtitle: data.project.name, html: html() })}
-              onMd={() =>
-                downloadText(
-                  `automacoes-${slug(line.data?.nome)}.md`,
-                  `# ${title}\n\n${a.visao}\n\n## Cadência\n\n${a.cadencia.map((c) => `- D${c.dia} · ${c.canal}: ${c.acao} (${c.objetivo})${c.template ? ` [${c.template}]` : ''}`).join('\n')}\n\n## Templates\n\n${a.templates
-                    .map((t) => `### ${t.nome} (${CATEGORIAS[t.categoria]?.label})\n${t.quando}\n\n${t.texto}`)
-                    .join('\n\n')}\n`,
-                )
-              }
             />
           ) : null
         }
       >
-        Cadência multicanal de até 15 dias, templates do WhatsApp oficial por categoria da Meta e as regras de follow-up. A pasta 08 usa estes números para simular o custo.
+        Cadência multicanal de até 15 dias, templates do WhatsApp oficial por categoria da Meta e as regras de follow-up. A pasta 09 usa estes números para simular o custo.
       </PastaHead>
 
       <Generate
@@ -103,8 +144,11 @@ export default function Automacoes({ data, line, lineId, onUpdate }) {
                     {t.dentro_janela ? <span className="dq-chip dq-chip-green">Dentro da janela</span> : null}
                   </div>
                   <p className="small muted">{t.quando}</p>
-                  <p className="template-text">{t.texto}</p>
-                  <CopyButton text={t.texto} />
+                  <p className="template-text">
+                    <TemplateText t={t} ctx={ctx} />
+                  </p>
+                  <p className="small muted">{legend(t)}</p>
+                  <CopyButton text={t.texto} label="Copiar para a Meta" />
                 </article>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { dateLabel } from '../lib/format.js';
 import CopyButton from './CopyButton.jsx';
 import Modal from './Modal.jsx';
+import Avatar from './Avatar.jsx';
 
 /** Time do caso. O gestor convida por link (vale 7 dias), muda papéis, gera link de nova senha e remove pessoas. */
 export default function Team({ data, onUpdate }) {
@@ -53,9 +54,7 @@ export default function Team({ data, onUpdate }) {
       <ul className="team">
         {data.members.map((m) => (
           <li key={m.id} className="team-row">
-            <span className="avatar" aria-hidden="true">
-              {m.name.slice(0, 1).toUpperCase()}
-            </span>
+            <Avatar userId={m.id} name={m.name} avatarAt={m.avatar_at} />
             <span className="team-name">
               {m.name}
               <span className="small muted"> {m.user_role === 'admin' ? 'consultor' : m.role}</span>

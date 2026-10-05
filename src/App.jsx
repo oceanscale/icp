@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api, setUnauthorizedHandler } from './lib/api.js';
 import Landing from './pages/Landing.jsx';
 import Invite from './pages/Invite.jsx';
+import Dinamica from './pages/Dinamica.jsx';
 import Cases from './pages/Cases.jsx';
 import CasePage from './pages/Case.jsx';
 import TopBar from './components/TopBar.jsx';
@@ -12,6 +13,7 @@ function parseRoute() {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (parts[0] === 'convite' && parts[1]) return { name: 'invite', token: parts[1] };
   if (parts[0] === 'primeiro-acesso') return { name: 'setup' };
+  if (parts[0] === 'dinamica' && parts[1]) return { name: 'dinamica', token: parts[1] };
   if (parts[0] === 'caso' && parts[1]) return { name: 'case', pid: parts[1], lid: parts[2] || null, pasta: parts[3] || null };
   return { name: 'home' };
 }
@@ -52,6 +54,9 @@ export default function App() {
 
   const toggleTheme = () => setTheme((t) => (t === 'papel' ? 'noturno' : 'papel'));
 
+  // A dinâmica é pública: abre com ou sem login.
+  if (route.name === 'dinamica') return <Dinamica token={route.token} />;
+
   if (user === undefined) return <div className="app-loading" aria-busy="true" />;
 
   if (route.name === 'invite') return <Invite token={route.token} onDone={(u, pid) => { setUser(u); navigate(pid ? `#/caso/${pid}` : '#/'); }} />;
@@ -60,7 +65,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={logout} />
+      <TopBar user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={logout} onUserChange={setUser} />
       <main className="app-main">
         {route.name === 'case' ? <CasePage key={route.pid} route={route} user={user} /> : <Cases user={user} />}
       </main>

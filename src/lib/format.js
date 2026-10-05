@@ -23,3 +23,36 @@ export function weekLabel(week) {
   const [year, w] = week.split('-W');
   return `Semana ${Number(w)} · ${year}`;
 }
+
+/** Segunda-feira (UTC) da semana ISO "2026-W41". */
+export function mondayOfIsoWeek(week) {
+  const [y, w] = week.split('-W').map(Number);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const day = jan4.getUTCDay() || 7;
+  return new Date(jan4.getTime() + ((w - 1) * 7 - (day - 1)) * 86400000);
+}
+
+const mondayOf = (ms) => {
+  const d = new Date(ms);
+  const utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = new Date(utc).getUTCDay() || 7;
+  return utc - (day - 1) * 86400000;
+};
+
+/** "Semana 1 do caso · 05 a 11 OUT": conta as semanas desde a abertura do caso. */
+export function caseWeekLabel(week, caseCreatedAt) {
+  const start = mondayOfIsoWeek(week).getTime();
+  const n = Math.max(1, Math.floor((start - mondayOf(caseCreatedAt)) / (7 * 86400000)) + 1);
+  const end = new Date(start + 6 * 86400000);
+  const s = new Date(start);
+  const fmt = (d) => `${String(d.getUTCDate()).padStart(2, '0')} ${MONTHS[d.getUTCMonth()]}`;
+  return { short: `Semana ${n}`, long: `Semana ${n} do caso · ${fmt(s)} a ${fmt(end)}` };
+}
+
+export function clientesReais(n) {
+  if (n <= 0) return 'Sem clientes reais na entrevista';
+  const words = ['', 'um', 'dois'];
+  return `Com ${words[n] || n} ${n === 1 ? 'cliente real' : 'clientes reais'}`;
+}
+
+export const firstName = (name) => String(name || '').split(/[\s,]+/).filter(Boolean)[0] || '';

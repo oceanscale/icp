@@ -1,5 +1,5 @@
 import { GENERATORS, aiModel, writeAds } from './ai.js';
-import { clearCookie, readSessionToken, sameString, sessionCookie, sha256 } from './auth.js';
+import { clearCookie, randomToken, readSessionToken, sameString, sessionCookie, sha256 } from './auth.js';
 import { generatePortrait } from './images.js';
 import { HttpError, fromStoreError, isSameOrigin, json, pickStrings, readJson, str } from './util.js';
 import { isoWeek } from '../shared/game.js';
@@ -54,7 +54,7 @@ function sanitizeAds(body) {
   const prints = (Array.isArray(body.prints) ? body.prints : [])
     .slice(0, 4)
     .filter((p) => IMAGE_TYPES.includes(p?.media_type) && typeof p.data === 'string' && p.data.length < 1_600_000 && /^[A-Za-z0-9+/=]+$/.test(p.data.slice(0, 200)));
-  return { plataformas, objetivo: str(body.objetivo, 300), referencias, prints };
+  return { plataformas, objetivo: str(body.objetivo, 300), concorrente: str(body.concorrente, 120), referencias, prints };
 }
 
 async function route(request, env, url, setCookie) {
@@ -97,6 +97,16 @@ async function route(request, env, url, setCookie) {
     }
   }
 
+  // Dinâmica do ICP: formulário público, sem login, aberto pelo link que o time recebe.
+  const dyn = /^\/api\/dinamica\/([A-Za-z0-9_-]{20,60})$/.exec(pathname);
+  if (dyn) {
+    if (method === 'GET') return db.dynamicInfo(dyn[1]);
+    if (method === 'POST') {
+      const body = await readJson(request, 20_000);
+      return db.submitDynamic(dyn[1], { nome: str(body.nome, 80), cliente: pickStrings(body.cliente, CLIENTE_KEYS, 600), frase: str(body.frase, 400) }, ip);
+    }
+  }
+
   // ----- daqui para baixo, só com sessão -----
   const raw = readSessionToken(request);
   const tokenHash = raw ? await sha256(raw) : null;
@@ -115,6 +125,23 @@ async function route(request, env, url, setCookie) {
     const body = await readJson(request);
     await db.changePassword(me, body.current, body.next);
     return { ok: true };
+  }
+  if (pathname === '/api/me/avatar') {
+    if (method === 'PUT') {
+      const body = await readJson(request, 500_000);
+      return { user: await db.setAvatar(me, str(body.mime, 30), typeof body.data === 'string' ? body.data : '') };
+    }
+    if (method === 'DELETE') return { user: await db.removeAvatar(me) };
+  }
+  const avatarMatch = /^\/api\/avatars\/([0-9a-f-]{36})$/.exec(pathname);
+  if (avatarMatch && method === 'GET') {
+    const img = await db.getAvatar(me, avatarMatch[1]);
+    const bytes = Uint8Array.from(atob(img.data), (c) => c.charCodeAt(0));
+    return new Response(bytes, { headers: { 'content-type': img.mime, 'cache-control': 'private, max-age=604800' } });
+  }
+  if (pathname === '/api/precos') {
+    if (method === 'GET') return { prices: await db.getPrices() };
+    if (method === 'PUT') return { prices: await db.setPrices(me, await readJson(request)) };
   }
   if (pathname === '/api/consultores/convite' && method === 'POST') {
     const body = await readJson(request);
@@ -162,6 +189,9 @@ async function route(request, env, url, setCookie) {
     return db.cancelInvite(me, pid, (await readJson(request)).email);
   }
 
+  const answer = /^\/answers\/([0-9a-f-]{36})$/.exec(rest);
+  if (answer && method === 'DELETE') return db.deleteAnswer(me, pid, answer[1]);
+
   const member = /^\/members\/([0-9a-f-]{36})(\/reset)?$/.exec(rest);
   if (member) {
     const [, uid, reset] = member;
@@ -187,13 +217,18 @@ async function route(request, env, url, setCookie) {
     return db.saveDoc(me, pid, lid, kind, sanitizeDoc(kind, await readJson(request)), note);
   }
 
-  const gen = /^\/generate\/(icp|playbook|roteiros|funil|automacoes)$/.exec(sub);
+  if (sub === '/dinamica') {
+    if (method === 'POST') return db.createDynamic(me, pid, lid, randomToken(24));
+    if (method === 'DELETE') return db.closeDynamic(me, pid, lid);
+  }
+
+  const gen = /^\/generate\/(icp|playbook|roteiros|jornada|funil|automacoes|conteudo)$/.exec(sub);
   if (gen && method === 'POST') {
     const kind = gen[1];
     const ctx = await db.getContext(me, pid, lid);
     if (ctx.pastaStates[kind] === 'locked') throw new HttpError('Esta pasta ainda está trancada', 400);
     const data = await GENERATORS[kind](env, ctx);
-    const labels = { icp: 'gerou o ICP', playbook: 'gerou o playbook', roteiros: 'gerou os roteiros', funil: 'desenhou o funil', automacoes: 'desenhou a cadência e as automações' };
+    const labels = { icp: 'gerou o ICP', playbook: 'gerou o playbook', roteiros: 'gerou os roteiros', jornada: 'mapeou a jornada de compra', funil: 'desenhou o funil', automacoes: 'desenhou a cadência e as automações', conteudo: 'gerou o plano de conteúdo' };
     return db.saveDoc(me, pid, lid, kind, data, `${labels[kind]} da linha ${ctx.line.nome || ''}`.trim());
   }
 

@@ -1,27 +1,33 @@
 # Dossiê ICP
 
-Sistema da operação comercial da Oceanscale para estruturar o comercial das empresas atendidas no treinamento. Cada empresa é um **caso**; cada linha de produto da empresa percorre 8 pastas, e cada pasta entregue abre a próxima:
+Sistema da operação comercial da Oceanscale para estruturar o comercial das empresas atendidas no treinamento. Cada empresa é um **caso**; cada linha de produto da empresa percorre 9 pastas, e cada pasta entregue abre a próxima:
 
 | Pasta | O que entrega |
 | --- | --- |
 | 01 Empresa | Pitch, diferenciais, time, ferramentas e as linhas de produto (vale para o caso todo) |
-| 02 ICP | Entrevista de carteira com 3 a 5 clientes reais, ICP principal e secundário, persona decisora e retrato gerado por IA |
+| 02 ICP | Entrevista de carteira com 3 a 5 clientes reais, dinâmica com o time por link público, ICP principal e secundário, persona decisora e retrato gerado por IA |
 | 03 Playbook | Checklist de implantação (cada item vale XP), critério de lead qualificado, perguntas SPIN, objeções A.R.A., rituais e indicadores |
 | 04 Roteiros | Cold call de 4 minutos, e-mail, WhatsApp, LinkedIn e respostas rápidas a objeções |
-| 05 Funil | Etapas para o Kanban do CRM: critério de entrada e saída, dono, prazo, conversão de referência; exporta CSV |
-| 06 Ads | Pautas semanais de criativo e copy (formato, fase, foco), com links e prints de anúncios de concorrentes |
-| 07 Automações | Cadência de 15 dias, templates do WhatsApp oficial por categoria da Meta, regras de follow-up |
-| 08 Simulador | Custo por disparo e por lead, reuniões, custo por reunião e a conta de trás para frente a partir da meta |
+| 05 Jornada | Mapa mental da jornada de compra: gatilhos, onde está a atenção, em quem confia, o que pergunta, o que pensa e o que leva à conversa |
+| 06 Funil | Etapas para o Kanban do CRM: critério de entrada e saída, dono, prazo, conversão de referência; exporta CSV |
+| 07 Anúncios | Anúncios de mídia paga da semana (campanha, público, gancho, texto, criativo), com tutorial para pegar anúncios de concorrentes nas bibliotecas |
+| 08 Automações | Cadência de 15 dias, templates do WhatsApp oficial por categoria da Meta (com os nomes no lugar de {{1}}), regras de follow-up |
+| 09 Simulador | Em 3 passos: preço por mensagem (tabela única preenchida pelo consultor), leads por mês e resultado; avançado com conversão e meta. No fim, o dossiê completo em PDF |
+| Bônus · Conteúdo | Abre com os primeiros anúncios: plano de conteúdo orgânico da semana (linha editorial, pilares, um post por dia). Vale XP extra |
 
-**Jogo:** cada pasta tem missões (automáticas, que o sistema marca quando a entrega existe, e manuais, que o time marca). Missões dão XP, pasta resolvida dá +50 XP, o caso sobe de nível (Improviso, Estruturando, Processo definido, Previsível, Escalável) e o mural mostra o ranking do time. A pasta seguinte só abre quando a peça-chave da anterior existe, e o servidor também confere isso.
+**Jogo:** cada pasta tem missões (automáticas, que o sistema marca quando a entrega existe, e manuais, que o time marca). Missões dão XP, pasta resolvida dá +50 XP, o caso sobe de nível (Improviso, Estruturando, Processo definido, Previsível, Escalável) e o mural mostra o ranking do time. A pasta seguinte só abre quando a peça-chave da anterior existe, e o servidor também confere isso. Uma pasta que já tem entrega nunca volta a trancar.
 
-PDF (pela impressão do navegador, em layout neutro), Markdown e CSV saem de cada pasta.
+**Salvamento:** os formulários (Empresa, entrevista de carteira, simulador) salvam sozinhos 1,5 segundo depois da última alteração, com um selo de "Salvo às ..." e aviso ao fechar a aba se algo ficou pendente. A dinâmica pública guarda o rascunho no aparelho até o envio.
+
+**Downloads:** PDF de cada pasta em layout neutro, CSV do funil e o **dossiê completo** (pasta 09): várias páginas com capa, nível, tabuleiro, retrato do decisor, todas as pastas e o mural do time.
 
 ## Acesso
 
 - **Consultor** (papel `admin`): abre casos, vê todos e convida pessoas e outros consultores.
 - **Gestor** do caso: convida e remove pessoas do caso, muda papéis e gera link de nova senha.
 - **Membro** do caso: preenche pastas, gera com IA e cumpre missões.
+- **Dinâmica do ICP:** link público (7 dias) para os vendedores contarem do melhor cliente sem login; as respostas entram no caso e no contexto da IA.
+- **Foto do perfil:** em Sua conta (clique no seu nome no topo).
 
 Login com e-mail e senha (PBKDF2-SHA256 com 100.000 iterações, sessão em cookie HttpOnly de 30 dias). Ninguém se cadastra sozinho: entra por **link de convite** (vale 7 dias, uso único) que o gestor ou o consultor copia e envia pelo WhatsApp. "Esqueci a senha" também é por link (48 horas) gerado pelo gestor. Cinco senhas erradas seguidas bloqueiam o e-mail por 15 minutos.
 
@@ -68,7 +74,8 @@ Confira a configuração em `/api/health` (`anthropic` e `portrait` dizem se a I
 - **Plano grátis do Workers:** o limite de CPU por requisição é baixo, e o cálculo da senha no login e no convite é pesado de propósito. Se o login devolver erro 1102 (limite de recursos), a saída é o Workers Paid (US$ 5 por mês) ou baixar `PBKDF2_ITERATIONS` nas variáveis, o que deixa a senha mais fácil de quebrar se o banco vazar.
 - **Retrato do decisor:** usa o modelo FLUX.1 schnell do Workers AI, que tem cota diária gratuita. Quantas imagens cabem na cota depende da tabela de preços atual do Workers AI. Cada linha guarda os 3 retratos mais recentes.
 - **Bibliotecas de anúncios:** o servidor não lê os links da Meta, LinkedIn ou TikTok (não há API aberta para anúncios comerciais no Brasil). O link fica registrado; o que a IA analisa são os prints enviados.
-- **Custo do WhatsApp:** o simulador não traz preços prontos. Use os valores por categoria da fatura do seu provedor da API oficial.
+- **Custo do WhatsApp:** o simulador não traz preços prontos. Um consultor preenche uma vez a tabela de preços por categoria (pasta 09, "Preencher tabela de preços") com os valores da fatura do provedor da API oficial; ela vale para todos os casos.
+- **Onde ficam os dados:** num Durable Object com SQLite da Cloudflare (`DOSSIE`, objeto único `main`): usuários, sessões, casos, pastas, respostas da dinâmica, retratos e fotos de perfil.
 
 ## Rodando
 

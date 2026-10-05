@@ -16,7 +16,7 @@ export default function Funil({ data, line, lineId, onUpdate }) {
   return (
     <div className="pasta">
       <PastaHead
-        code="05"
+        code="06"
         title={title}
         actions={
           f ? (

@@ -72,14 +72,6 @@ export default function Roteiros({ data, line, lineId, onUpdate }) {
           r ? (
             <Downloads
               onPdf={() => printDocument({ title, subtitle: data.project.name, html: `<p class="muted">A ligação fria serve para qualificar e agendar, não para vender. Cerca de 4 minutos.</p>${table(['Canal', 'Etapa', 'Texto'], allRows(r))}` })}
-              onMd={() =>
-                downloadText(
-                  `roteiros-${slug(line.data?.nome)}.md`,
-                  `# ${title} · ${data.project.name}\n\n${allRows(r)
-                    .map(([c, s, t]) => `### ${c} · ${s}\n\n${t}\n`)
-                    .join('\n')}`,
-                )
-              }
             />
           ) : null
         }
@@ -113,7 +105,7 @@ export default function Roteiros({ data, line, lineId, onUpdate }) {
             ) : null}
             {canal === 'whatsapp' ? (
               <>
-                <Script step="Primeira mensagem" text={r.whatsapp.primeira_mensagem} note="Fora da janela de 24 horas, a primeira mensagem precisa ser um template aprovado pela Meta (veja a pasta 07)." />
+                <Script step="Primeira mensagem" text={r.whatsapp.primeira_mensagem} note="Fora da janela de 24 horas, a primeira mensagem precisa ser um template aprovado pela Meta (veja a pasta 08)." />
                 <Script step="Retomada" text={r.whatsapp.follow_up} />
                 <Script step="Encerramento" text={r.whatsapp.break_up} />
               </>

@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Button, CaseFile, Field, IcpFile, Note, Stamp } from '../ds/index.jsx';
 import { api } from '../lib/api.js';
-import { downloadText, esc, list, printDocument } from '../lib/export.js';
+import { useAutosave } from '../lib/autosave.js';
+import { esc, list, printDocument } from '../lib/export.js';
+import { ago, clientesReais, dateLabel } from '../lib/format.js';
 import Generate from '../components/Generate.jsx';
-import { Block, Downloads, KV, PastaHead, slug } from './common.jsx';
+import CopyButton from '../components/CopyButton.jsx';
+import { AutosaveTip, SaveStatus } from '../components/SaveStatus.jsx';
+import { Block, Downloads, KV, PastaHead } from './common.jsx';
 
 const CLIENTE_FIELDS = [
   ['nome', 'Cliente', 'Nome ou apelido'],
@@ -15,6 +19,7 @@ const CLIENTE_FIELDS = [
   ['ticket', 'Ticket e recorrência', 'Primeira compra, recompras'],
   ['resultado', 'Resultado entregue', 'Transformação; voltaria a comprar?'],
 ];
+export { CLIENTE_FIELDS };
 const emptyCliente = () => Object.fromEntries(CLIENTE_FIELDS.map(([k]) => [k, '']));
 
 function perfilFields(p) {
@@ -75,10 +80,82 @@ function exportIcp(data, line, icp) {
   printDocument({ title: `ICP · ${line.data?.nome || ''}`, subtitle: data.project.name, html });
 }
 
-function icpMarkdown(data, line, icp) {
-  const p = (x, t) => `## ${t}: ${x.nome_perfil}\n\n**${x.frase}**\n\n${perfilFields(x).map((f) => `- **${f.label}:** ${f.value}`).join('\n')}\n\n**Sinais de encaixe:** ${(x.sinais_de_fit || []).join('; ')}\n\n**Sinais de alerta:** ${(x.sinais_de_alerta || []).join('; ')}\n`;
-  const pe = icp.persona;
-  return `# ICP · ${line.data?.nome || ''} · ${data.project.name}\n\n_${icp.nota_confianca}_\n\n${p(icp.principal, 'ICP principal')}\n${p(icp.secundario, 'ICP secundário')}\n## Persona: ${pe.nome}\n\n- **Cargo:** ${pe.cargo}\n- **Responsabilidades:** ${pe.responsabilidades}\n- **Metas:** ${pe.metas}\n- **Dores:** ${pe.dores}\n- **O que precisa ouvir:** ${pe.o_que_precisa_ouvir}\n- **Alçada:** ${pe.alcada}\n- **Canais:** ${pe.canais}\n\n## Lacunas\n\n${(icp.lacunas || []).map((l) => `- ${l}`).join('\n')}\n`;
+function Dinamica({ data, line, lineId, onUpdate, onUse }) {
+  const pid = data.project.id;
+  const active = data.dynamics?.[lineId];
+  const answers = (data.answers || []).filter((a) => a.line_id === lineId);
+  const [error, setError] = useState('');
+  const link = active ? `${window.location.origin}/#/dinamica/${active.token}` : null;
+  const act = async (fn) => {
+    setError('');
+    try {
+      onUpdate(await fn());
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  return (
+    <Block title="Dinâmica com o time de vendas" aside={<span className="dq-label">{answers.length} respostas</span>}>
+      <p className="small muted">
+        Gere um link e mande no grupo dos vendedores. Cada um conta, sem precisar de login, sobre o melhor cliente que já atendeu nesta linha. As respostas chegam aqui, entram no contexto da IA e você escolhe quais viram cliente da entrevista.
+      </p>
+      {link ? (
+        <div className="stack-3" style={{ marginTop: 'var(--space-3)' }}>
+          <code className="link-box">{link}</code>
+          <div className="row-3">
+            <CopyButton text={link} label="Copiar link" />
+            <Button size="sm" variant="quiet" onClick={() => window.open(link, '_blank', 'noopener')}>
+              Ver como o vendedor vê
+            </Button>
+            <button type="button" className="link-btn small" onClick={() => window.confirm('Encerrar a dinâmica? O link para de aceitar respostas.') && act(() => api(`/projects/${pid}/lines/${lineId}/dinamica`, { method: 'DELETE' }))}>
+              Encerrar dinâmica
+            </button>
+            <span className="small muted">Aberta até {dateLabel(active.expires_at)}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="row-3" style={{ marginTop: 'var(--space-3)' }}>
+          <Button variant="quiet" onClick={() => act(() => api(`/projects/${pid}/lines/${lineId}/dinamica`, { method: 'POST' }))}>
+            Criar link da dinâmica
+          </Button>
+        </div>
+      )}
+      {error ? <p className="error-text">{error}</p> : null}
+      {answers.length ? (
+        <div className="answers">
+          {answers.map((a) => (
+            <article key={a.id} className="answer">
+              <div className="answer-head">
+                <b>{a.nome}</b>
+                <span className="small muted">{ago(a.created_at)}</span>
+              </div>
+              {a.data.frase ? <p className="answer-frase">“{a.data.frase}”</p> : null}
+              <p className="small">
+                <b>{a.data.nome || 'Cliente sem nome'}</b>
+                {a.data.segmento ? ` · ${a.data.segmento}` : ''}
+              </p>
+              <p className="small">
+                <span className="dq-label">Dor</span> {a.data.dor}
+              </p>
+              {a.data.gatilho ? (
+                <p className="small">
+                  <span className="dq-label">Gatilho</span> {a.data.gatilho}
+                </p>
+              ) : null}
+              <div className="row-3">
+                <Button size="sm" variant="quiet" onClick={() => onUse(a)}>
+                  Usar na entrevista
+                </Button>
+                <button type="button" className="link-btn small" onClick={() => window.confirm('Remover esta resposta?') && act(() => api(`/projects/${pid}/answers/${a.id}`, { method: 'DELETE' }))}>
+                  remover
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </Block>
+  );
 }
 
 export default function Icp({ data, line, lineId, onUpdate }) {
@@ -88,24 +165,26 @@ export default function Icp({ data, line, lineId, onUpdate }) {
   const saved = docs.icp_input?.data;
   const [input, setInput] = useState(() => ({ clientes: saved?.clientes?.length ? saved.clientes : [emptyCliente(), emptyCliente(), emptyCliente()], observacoes: saved?.observacoes || '' }));
   const [open, setOpen] = useState(saved?.clientes?.length ? -1 : 0);
-  const [status, setStatus] = useState('');
+  const [notice, setNotice] = useState('');
   const [portrait, setPortrait] = useState({ busy: false, error: '' });
   const image = data.images[lineId];
   const validos = input.clientes.filter((c) => c.nome.trim() && c.dor.trim()).length;
 
   const setCliente = (i, k, v) => setInput({ ...input, clientes: input.clientes.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
-  const saveInput = async () => {
-    setStatus('Salvando...');
-    try {
-      onUpdate(await api(`/projects/${pid}/lines/${lineId}/docs/icp_input`, { method: 'PUT', body: input }));
-      setStatus('Entrevista salva.');
-    } catch (err) {
-      setStatus(err.message);
-    }
-  };
+  const auto = useAutosave(input, async (v) => onUpdate(await api(`/projects/${pid}/lines/${lineId}/docs/icp_input`, { method: 'PUT', body: v })));
   const generate = async () => {
-    await api(`/projects/${pid}/lines/${lineId}/docs/icp_input`, { method: 'PUT', body: input });
+    await auto.flush();
     onUpdate(await api(`/projects/${pid}/lines/${lineId}/generate/icp`, { method: 'POST' }));
+  };
+  const useAnswer = (a) => {
+    const c = Object.fromEntries(CLIENTE_FIELDS.map(([k]) => [k, String(a.data[k] || '')]));
+    if (!c.nome) c.nome = `Cliente de ${a.nome}`;
+    const empty = input.clientes.findIndex((x) => !x.nome.trim() && !x.dor.trim());
+    if (empty < 0 && input.clientes.length >= 5) return setNotice('A entrevista já tem 5 clientes. Remova um para usar esta resposta.');
+    const clientes = empty >= 0 ? input.clientes.map((x, i) => (i === empty ? c : x)) : [...input.clientes, c];
+    setInput({ ...input, clientes });
+    setOpen(empty >= 0 ? empty : clientes.length - 1);
+    setNotice(`Resposta de ${a.nome} copiada para a entrevista.`);
   };
   const reveal = async () => {
     setPortrait({ busy: true, error: '' });
@@ -122,11 +201,17 @@ export default function Icp({ data, line, lineId, onUpdate }) {
       <PastaHead
         code="02"
         title={`ICP · ${line.data?.nome || ''}`}
-        actions={icp ? <Downloads onPdf={() => exportIcp(data, line, icp)} onMd={() => downloadText(`icp-${slug(line.data?.nome)}.md`, icpMarkdown(data, line, icp))} /> : null}
+        actions={
+          <>
+            <SaveStatus {...auto} onRetry={auto.flush} />
+            {icp ? <Downloads onPdf={() => exportIcp(data, line, icp)} /> : null}
+          </>
+        }
       >
         O ICP nasce dos melhores clientes reais desta linha. Sem eles, o perfil sai como hipótese e tudo que vem depois herda o chute.
       </PastaHead>
 
+      <AutosaveTip />
       <Block title="Entrevista de carteira" aside={<span className="dq-label">{validos}/5 clientes</span>}>
         <p className="small muted">Pegue de 3 a 5 dos melhores clientes desta linha (os que mais compram, pagam em dia e voltam). Nome e dor são obrigatórios para contar.</p>
         <div className="clientes">
@@ -174,24 +259,21 @@ export default function Icp({ data, line, lineId, onUpdate }) {
         <div style={{ marginTop: 'var(--space-4)' }}>
           <Field label="Observações do consultor" multiline rows={2} value={input.observacoes} onChange={(e) => setInput({ ...input, observacoes: e.target.value })} hint="O que você percebeu na carteira e que não cabe nos campos." />
         </div>
-        <div className="row-3" style={{ marginTop: 'var(--space-3)' }}>
-          <Button variant="quiet" onClick={saveInput}>
-            Salvar entrevista
-          </Button>
-          {status ? (
-            <span className="small muted" role="status">
-              {status}
-            </span>
-          ) : null}
-        </div>
+        {notice ? (
+          <p className="small ok-text" role="status" style={{ marginTop: 'var(--space-3)' }}>
+            {notice}
+          </p>
+        ) : null}
       </Block>
+
+      <Dinamica data={data} line={line} lineId={lineId} onUpdate={onUpdate} onUse={useAnswer} />
 
       <Block title="Perfil do cliente ideal">
         <Generate
           label="Gerar ICP"
           has={Boolean(icp)}
           onRun={generate}
-          warning={validos < 3 ? `Com ${validos} cliente${validos === 1 ? '' : 's'} real${validos === 1 ? '' : 'is'}, o ICP sai como hipótese. O ideal são 3 ou mais.` : undefined}
+          warning={validos < 3 ? `${clientesReais(validos)}, o ICP sai como hipótese. O ideal são 3 ou mais.` : undefined}
           steps={['Lendo a entrevista de carteira...', 'Agrupando segmentos e dores...', 'Separando principal e secundário...', 'Descrevendo a persona decisora...', 'Datilografando a ficha...']}
         />
         {icp ? (

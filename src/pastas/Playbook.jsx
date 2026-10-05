@@ -31,7 +31,7 @@ function playbookHtml(pb, missions) {
   <h2>Indicadores semanais</h2>${table(['Indicador', 'Meta inicial'], pb.indicadores.map((r) => [r.indicador, r.meta]))}`;
 }
 
-function playbookMd(pb, missions, title) {
+export function playbookMd(pb, missions, title) {
   const done = new Set(missions.filter((m) => m.done).map((m) => m.id));
   return `# ${title}\n\n${pb.resumo}\n\n**Lead qualificado:** ${pb.criterio_qualificacao}\n\n## Checklist de implantação\n\n${pb.secoes
     .map((s, si) => `### ${s.titulo}\n\n${s.itens.map((it, ii) => `- [${done.has(`pb.${si}.${ii}`) ? 'x' : ' '}] ${it.texto}  \n  ${it.dica}`).join('\n')}`)
@@ -66,7 +66,6 @@ export default function Playbook({ data, line, lineId, pasta, onUpdate }) {
           pb ? (
             <Downloads
               onPdf={() => printDocument({ title, subtitle: data.project.name, html: playbookHtml(pb, items) })}
-              onMd={() => downloadText(`playbook-${slug(line.data?.nome)}.md`, playbookMd(pb, items, `${title} · ${data.project.name}`))}
             />
           ) : null
         }

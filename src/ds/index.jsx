@@ -60,6 +60,7 @@ export function FolderTabs({ tabs = [], active, onChange, label = 'Pastas do dos
               aria-controls={`${idBase}-panel`}
               tabIndex={sel ? 0 : -1}
               className={cx('dq-tab', t.locked && !sel && 'dq-tab-locked')}
+              title={t.code ? `${t.code} ${t.label}` : t.label}
               ref={(el) => {
                 refs.current[t.id] = el;
               }}
@@ -67,7 +68,7 @@ export function FolderTabs({ tabs = [], active, onChange, label = 'Pastas do dos
               onKeyDown={(e) => onKey(e, i)}
             >
               {t.code ? <span className="dq-tab-code">{t.code}</span> : null}
-              <span>{t.label}</span>
+              <span className="dq-tab-label">{t.label}</span>
               {t.done ? (
                 <span className="dq-tab-done" title="Pasta resolvida">
                   <CheckMark />
@@ -304,7 +305,7 @@ export function CreativeCard({ week, platform, placement, status, format, ratio 
       </div>
       {brief ? (
         <p className="dq-creative-brief">
-          <b>Pauta: </b>
+          <b>Criativo: </b>
           {brief}
         </p>
       ) : null}
@@ -348,7 +349,7 @@ export function ClueTrack({ steps = [], title = 'Progresso do caso', level, xp, 
             </>
           );
           return (
-            <li key={s.id || i} className={cx('dq-track-step', `dq-track-${st}`)} aria-current={s.active ? 'step' : undefined}>
+            <li key={s.id || i} className={cx('dq-track-step', `dq-track-${st}`, s.bonus && 'dq-track-bonus')} aria-current={s.active ? 'step' : undefined}>
               {onStep ? (
                 <button type="button" className="dq-track-btn" onClick={() => onStep(s.id ?? i)}>
                   {content}

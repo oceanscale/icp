@@ -1,18 +1,25 @@
 // Regras do jogo do Dossiê ICP, usadas pelo Worker e pelo front.
-// Um caso (empresa) tem a pasta 01 Empresa e, para cada linha de produto, as pastas 02 a 08.
+// Um caso (empresa) tem a pasta 01 Empresa e, para cada linha de produto, as pastas 02 a 09, mais a pasta bônus.
 // Cada pasta tem missões: automáticas (o sistema marca quando a entrega existe) e manuais (o time marca).
 // A pasta seguinte abre quando a peça-chave da anterior existe; a pasta fica resolvida quando todas as missões estão feitas.
+// Uma pasta que já tem a própria entrega nunca volta a trancar (vale para casos antigos quando entra uma pasta nova).
 
 export const PASTAS = [
   { id: 'empresa', code: '01', label: 'Empresa', scope: 'caso' },
   { id: 'icp', code: '02', label: 'ICP' },
   { id: 'playbook', code: '03', label: 'Playbook' },
   { id: 'roteiros', code: '04', label: 'Roteiros' },
-  { id: 'funil', code: '05', label: 'Funil' },
-  { id: 'ads', code: '06', label: 'Ads' },
-  { id: 'automacoes', code: '07', label: 'Automações' },
-  { id: 'simulador', code: '08', label: 'Simulador' },
+  { id: 'jornada', code: '05', label: 'Jornada' },
+  { id: 'funil', code: '06', label: 'Funil' },
+  { id: 'ads', code: '07', label: 'Anúncios' },
+  { id: 'automacoes', code: '08', label: 'Automações' },
+  { id: 'simulador', code: '09', label: 'Simulador' },
 ];
+
+// Pastas bônus: abrem quando a peça-chave da pasta `after` existe e não contam para o caso resolvido.
+export const BONUS = [{ id: 'conteudo', code: 'B', label: 'Conteúdo', bonus: true, after: 'ads' }];
+
+export const ALL_PASTAS = [...PASTAS, ...BONUS];
 
 export const XP = { auto: 20, manual: 10, item: 5, pasta: 50 };
 
@@ -51,6 +58,11 @@ export const MISSIONS = {
     { id: 'roteiros.objecoes', label: 'Banco de objeções revisado pelo time', hint: 'Acrescente as objeções reais da semana' },
     { id: 'roteiros.ligacoes', label: '10 primeiras ligações feitas com o roteiro' },
   ],
+  jornada: [
+    { id: 'jornada.gerada', label: 'Jornada de compra mapeada', auto: (c) => (c.docs.jornada ? c.docs.jornada.updated_by : false), key: true },
+    { id: 'jornada.validada', label: 'Jornada conferida com 2 clientes reais', hint: 'Pergunte onde buscaram informação antes de comprar' },
+    { id: 'jornada.canais', label: 'Canais prioritários escolhidos pelo time', hint: 'Onde o ICP presta atenção e vocês vão aparecer' },
+  ],
   funil: [
     { id: 'funil.gerado', label: 'Etapas do funil desenhadas', auto: (c) => (c.docs.funil ? c.docs.funil.updated_by : false), key: true },
     { id: 'funil.crm', label: 'Etapas configuradas no CRM do cliente' },
@@ -58,9 +70,9 @@ export const MISSIONS = {
     { id: 'funil.taxas', label: 'Taxas de conversão da primeira semana registradas' },
   ],
   ads: [
-    { id: 'ads.pauta', label: 'Primeiras pautas da semana geradas', auto: (c) => (c.ads.length ? c.ads[c.ads.length - 1].created_by : false), key: true },
+    { id: 'ads.pauta', label: 'Primeiros anúncios da semana gerados', auto: (c) => (c.ads.length ? c.ads[c.ads.length - 1].created_by : false), key: true },
     { id: 'ads.referencias', label: 'Referências de concorrentes registradas', hint: 'Links das bibliotecas de anúncios e prints', auto: (c) => { const a = c.ads.find((x) => (x.input?.referencias || []).length); return a ? a.created_by : false; } },
-    { id: 'ads.publicado', label: 'Primeiro criativo no ar' },
+    { id: 'ads.publicado', label: 'Primeiro anúncio no ar' },
     { id: 'ads.revisao', label: 'Revisão semanal de resultados feita' },
   ],
   automacoes: [
@@ -73,6 +85,11 @@ export const MISSIONS = {
     { id: 'simulador.salvo', label: 'Cenário de custo salvo', auto: (c) => (c.docs.simulador ? c.docs.simulador.updated_by : false), key: true },
     { id: 'simulador.orcamento', label: 'Orçamento mensal de disparos aprovado' },
     { id: 'simulador.meta', label: 'Meta de reuniões do mês definida' },
+  ],
+  conteudo: [
+    { id: 'conteudo.gerado', label: 'Plano de conteúdo da semana gerado', auto: (c) => (c.docs.conteudo ? c.docs.conteudo.updated_by : false), key: true },
+    { id: 'conteudo.agenda', label: 'Calendário da semana aprovado' },
+    { id: 'conteudo.publicado', label: 'Três posts publicados' },
   ],
 };
 
@@ -115,8 +132,10 @@ export function computeGame(state) {
     });
   };
 
-  const pastaState = (missions, open) => {
+  const pastaState = (missions, prevOpen) => {
     const keyDone = missions.filter((m) => m.key).every((m) => m.done);
+    const ownKey = missions.some((m) => m.key && m.done);
+    const open = prevOpen || ownKey;
     const all = missions.length > 0 && missions.every((m) => m.done);
     return { state: !open ? 'locked' : all ? 'done' : 'open', keyDone, resolved: open && all };
   };
@@ -138,16 +157,24 @@ export function computeGame(state) {
     };
     let prevKey = empresa.keyDone;
     const pastas = [empresa];
-    for (const p of PASTAS.slice(1)) {
+    const byId = { empresa };
+    const add = (p, prevOpen) => {
       const missions = resolveMissions(p.id, line.id, ctx);
-      const st = pastaState(missions, prevKey);
+      const st = pastaState(missions, prevOpen);
       if (st.state !== 'locked') {
         missions.filter((m) => m.done).forEach((m) => award(m.doneBy, m.points));
         if (st.resolved) award(null, XP.pasta);
       }
-      pastas.push({ id: p.id, missions, ...st });
-      prevKey = st.state !== 'locked' && st.keyDone;
+      const pasta = { id: p.id, bonus: Boolean(p.bonus), missions, ...st };
+      pastas.push(pasta);
+      byId[p.id] = pasta;
+      return pasta;
+    };
+    for (const p of PASTAS.slice(1)) {
+      const pasta = add(p, prevKey);
+      prevKey = pasta.state !== 'locked' && pasta.keyDone;
     }
+    for (const b of BONUS) add(b, byId[b.after].state !== 'locked' && byId[b.after].keyDone);
     lines[line.id] = { pastas };
   }
 

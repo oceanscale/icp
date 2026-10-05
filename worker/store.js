@@ -12,7 +12,9 @@ const DAY = 86_400_000;
 const LOCK_WINDOW = 15 * 60_000;
 const INVITE_DAYS = 7;
 const MAX_LINES = 10;
-const DOC_KINDS = ['icp_input', 'icp', 'playbook', 'roteiros', 'funil', 'automacoes', 'simulador'];
+const DOC_KINDS = ['icp_input', 'icp', 'playbook', 'roteiros', 'jornada', 'funil', 'automacoes', 'simulador', 'conteudo'];
+const DYNAMIC_DAYS = 7;
+const PRICE_KEYS = ['marketing', 'utilidade', 'autenticacao'];
 
 const fail = (status, message) => {
   throw new Error(`[${status}] ${message}`);
@@ -25,7 +27,7 @@ const parse = (text, fallback = null) => {
     return fallback;
   }
 };
-const pub = (u) => (u ? { id: u.id, email: u.email, name: u.name, role: u.role } : null);
+const pub = (u) => (u ? { id: u.id, email: u.email, name: u.name, role: u.role, avatarAt: u.avatar_at || null } : null);
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user',
@@ -49,13 +51,30 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, user_id TEXT, text TEXT, xp INTEGER, created_at INTEGER)`,
   `CREATE INDEX IF NOT EXISTS activity_project ON activity (project_id, id)`,
   `CREATE INDEX IF NOT EXISTS ads_line ON ads (project_id, line_id, week)`,
+  `CREATE TABLE IF NOT EXISTS avatars (user_id TEXT PRIMARY KEY, mime TEXT, data TEXT, updated_at INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT, updated_by TEXT, updated_at INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS dynamics (token TEXT PRIMARY KEY, project_id TEXT NOT NULL, line_id TEXT NOT NULL, created_by TEXT,
+    created_at INTEGER, expires_at INTEGER, closed INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE TABLE IF NOT EXISTS dynamic_answers (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, line_id TEXT NOT NULL, token TEXT, nome TEXT,
+    data TEXT, ip TEXT, created_at INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS answers_line ON dynamic_answers (project_id, line_id, created_at)`,
 ];
+
+// Colunas acrescentadas depois da primeira versão (o ALTER falha se já existir; tudo bem).
+const MIGRATIONS = ['ALTER TABLE users ADD COLUMN avatar_at INTEGER'];
 
 export class DossieStore extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     for (const statement of SCHEMA) this.sql.exec(statement);
+    for (const statement of MIGRATIONS) {
+      try {
+        this.sql.exec(statement);
+      } catch {
+        /* coluna já existe */
+      }
+    }
     this.iterations = Math.min(Number(env.PBKDF2_ITERATIONS) || 100_000, 100_000);
   }
 
@@ -97,6 +116,12 @@ export class DossieStore extends DurableObject {
   }
 
   log(projectId, userId, text, xp = 0) {
+    // Salvamento automático repete a mesma ação: dentro de 15 minutos, só atualiza o horário da última linha.
+    const last = this.one('SELECT id, user_id, text, created_at FROM activity WHERE project_id = ? ORDER BY id DESC LIMIT 1', projectId);
+    if (!xp && last && last.user_id === userId && last.text === text && now() - last.created_at < 15 * 60_000) {
+      this.sql.exec('UPDATE activity SET created_at = ? WHERE id = ?', now(), last.id);
+      return;
+    }
     this.sql.exec('INSERT INTO activity (project_id, user_id, text, xp, created_at) VALUES (?, ?, ?, ?, ?)', projectId, userId, text, xp, now());
   }
 
@@ -327,7 +352,7 @@ export class DossieStore extends DurableObject {
     const state = this.loadState(project.id);
     const game = computeGame(state);
     const members = this.one('SELECT COUNT(*) AS n FROM members WHERE project_id = ?', project.id).n;
-    const resolved = state.lines.reduce((acc, l) => acc + game.lines[l.id].pastas.slice(1).filter((p) => p.state === 'done').length, game.empresa.state === 'done' ? 1 : 0);
+    const resolved = state.lines.reduce((acc, l) => acc + game.lines[l.id].pastas.slice(1).filter((p) => !p.bonus && p.state === 'done').length, game.empresa.state === 'done' ? 1 : 0);
     const firstLine = state.lines[0] ? game.lines[state.lines[0].id].pastas : [game.empresa];
     return {
       id: project.id,
@@ -406,7 +431,7 @@ export class DossieStore extends DurableObject {
     const state = this.loadState(projectId);
     const game = computeGame(state);
     const members = this.q(
-      'SELECT u.id, u.name, u.email, u.role AS user_role, m.role, m.joined_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.project_id = ? ORDER BY m.joined_at',
+      'SELECT u.id, u.name, u.email, u.role AS user_role, u.avatar_at, m.role, m.joined_at FROM members m JOIN users u ON u.id = m.user_id WHERE m.project_id = ? ORDER BY m.joined_at',
       projectId,
     );
     // Só os nomes de quem tem rastro neste caso (nunca a base inteira de usuários).
@@ -419,9 +444,10 @@ export class DossieStore extends DurableObject {
     for (const kinds of Object.values(state.docs)) for (const d of Object.values(kinds)) ids.add(d.updated_by);
     if (state.empresa) ids.add(state.empresa.updated_by);
     const idList = [...ids].filter(Boolean).slice(0, 90);
-    const names = idList.length
-      ? Object.fromEntries(this.q(`SELECT id, name FROM users WHERE id IN (${idList.map(() => '?').join(',')})`, ...idList).map((u) => [u.id, u.name]))
-      : {};
+    const people = idList.length ? this.q(`SELECT id, name, avatar_at FROM users WHERE id IN (${idList.map(() => '?').join(',')})`, ...idList) : [];
+    const names = Object.fromEntries(people.map((u) => [u.id, u.name]));
+    names.dinamica = 'Dinâmica';
+    const avatars = Object.fromEntries(people.filter((u) => u.avatar_at).map((u) => [u.id, u.avatar_at]));
     const activity = this.q('SELECT user_id, text, xp, created_at FROM activity WHERE project_id = ? ORDER BY id DESC LIMIT 40', projectId).map((a) => ({
       ...a,
       name: names[a.user_id] || 'Alguém',
@@ -441,8 +467,20 @@ export class DossieStore extends DurableObject {
       game,
       members,
       names,
+      avatars,
       activity,
       invites,
+      prices: this.getPrices(),
+      dynamics: Object.fromEntries(
+        this.q('SELECT token, line_id, expires_at FROM dynamics WHERE project_id = ? AND closed = 0 AND expires_at > ?', projectId, now()).map((d) => [
+          d.line_id,
+          { token: d.token, expires_at: d.expires_at },
+        ]),
+      ),
+      answers: this.q('SELECT id, line_id, nome, data, created_at FROM dynamic_answers WHERE project_id = ? ORDER BY created_at DESC LIMIT 200', projectId).map((a) => ({
+        ...a,
+        data: parse(a.data, {}),
+      })),
     };
   }
 
@@ -490,7 +528,7 @@ export class DossieStore extends DurableObject {
     const actor = this.user(actorId);
     this.manage(actor, projectId);
     const l = this.line(projectId, lineId);
-    for (const table of ['docs', 'missions', 'ads', 'images']) {
+    for (const table of ['docs', 'missions', 'ads', 'images', 'dynamics', 'dynamic_answers']) {
       this.sql.exec(`DELETE FROM ${table} WHERE project_id = ? AND line_id = ?`, projectId, lineId);
     }
     this.sql.exec('DELETE FROM lines WHERE id = ?', lineId);
@@ -507,13 +545,18 @@ export class DossieStore extends DurableObject {
     const docs = {};
     for (const d of this.q('SELECT kind, data FROM docs WHERE project_id = ? AND line_id = ?', projectId, lineId)) docs[d.kind] = parse(d.data, {});
     const headlines = this.q('SELECT output FROM ads WHERE project_id = ? AND line_id = ? ORDER BY created_at DESC LIMIT 4', projectId, lineId).flatMap((a) =>
-      (parse(a.output, {}).pautas || []).map((p) => p.headline),
+      (parse(a.output, {}).anuncios || parse(a.output, {}).pautas || []).map((p) => p.titulo || p.headline),
     );
     const otherLines = this.q('SELECT data FROM lines WHERE project_id = ? AND id <> ?', projectId, lineId).map((l) => parse(l.data, {}).nome).filter(Boolean);
     // O desbloqueio do jogo também vale no servidor: pasta trancada não gera nada.
     const game = computeGame(this.loadState(projectId));
     const pastaStates = Object.fromEntries(game.lines[lineId].pastas.map((p) => [p.id, p.state]));
+    const answers = this.q('SELECT nome, data FROM dynamic_answers WHERE project_id = ? AND line_id = ? ORDER BY created_at DESC LIMIT 30', projectId, lineId).map((a) => ({
+      vendedor: a.nome,
+      ...parse(a.data, {}),
+    }));
     return {
+      answers,
       pastaStates,
       project: { name: project.name, segment: project.segment, city: project.city },
       empresa: parse(empresa?.data, {}),
@@ -607,7 +650,7 @@ export class DossieStore extends DurableObject {
       actor.id,
       now(),
     );
-    this.log(projectId, actor.id, `pediu ${output.pautas?.length || 0} pautas de anúncio da semana`);
+    this.log(projectId, actor.id, `gerou ${(output.anuncios || output.pautas || []).length} anúncios da semana`);
     return this.getProject(actorId, projectId);
   }
 
@@ -645,6 +688,126 @@ export class DossieStore extends DurableObject {
     if (!img) fail(404, 'Imagem não encontrada');
     this.access(actor, img.project_id);
     return { mime: img.mime, data: img.data };
+  }
+
+  // ---------- foto de perfil ----------
+
+  setAvatar(actorId, mime, data) {
+    const actor = this.user(actorId);
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) fail(400, 'Use uma imagem JPG, PNG ou WEBP');
+    if (typeof data !== 'string' || data.length > 400_000) fail(413, 'Imagem grande demais');
+    if (data) this.sql.exec('INSERT OR REPLACE INTO avatars (user_id, mime, data, updated_at) VALUES (?, ?, ?, ?)', actor.id, mime, data, now());
+    this.sql.exec('UPDATE users SET avatar_at = ? WHERE id = ?', now(), actor.id);
+    return pub(this.user(actor.id));
+  }
+
+  removeAvatar(actorId) {
+    const actor = this.user(actorId);
+    this.sql.exec('DELETE FROM avatars WHERE user_id = ?', actor.id);
+    this.sql.exec('UPDATE users SET avatar_at = NULL WHERE id = ?', actor.id);
+    return pub(this.user(actor.id));
+  }
+
+  getAvatar(actorId, userId) {
+    this.user(actorId);
+    const row = this.one('SELECT mime, data FROM avatars WHERE user_id = ?', userId);
+    if (!row) fail(404, 'Sem foto');
+    return row;
+  }
+
+  // ---------- tabela de preços do WhatsApp (vale para todos os casos) ----------
+
+  getPrices() {
+    const row = this.one("SELECT value, updated_by, updated_at FROM config WHERE key = 'precos'");
+    if (!row) return null;
+    const by = this.one('SELECT name FROM users WHERE id = ?', row.updated_by);
+    return { ...parse(row.value, {}), updated_at: row.updated_at, updated_by: by?.name || null };
+  }
+
+  setPrices(actorId, body) {
+    const actor = this.user(actorId);
+    if (actor.role !== 'admin') fail(403, 'Só consultores editam a tabela de preços');
+    const value = {};
+    for (const key of PRICE_KEYS) {
+      const n = Number(body?.[key]);
+      value[key] = Number.isFinite(n) && n >= 0 && n < 100 ? n : 0;
+    }
+    value.fonte = String(body?.fonte || '').trim().slice(0, 200);
+    this.sql.exec("INSERT OR REPLACE INTO config (key, value, updated_by, updated_at) VALUES ('precos', ?, ?, ?)", JSON.stringify(value), actor.id, now());
+    return this.getPrices();
+  }
+
+  // ---------- dinâmica do ICP: link público para os vendedores responderem ----------
+
+  createDynamic(actorId, projectId, lineId, token) {
+    const actor = this.user(actorId);
+    this.access(actor, projectId);
+    const line = this.line(projectId, lineId);
+    this.sql.exec('UPDATE dynamics SET closed = 1 WHERE project_id = ? AND line_id = ?', projectId, lineId);
+    this.sql.exec(
+      'INSERT INTO dynamics (token, project_id, line_id, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+      token,
+      projectId,
+      lineId,
+      actor.id,
+      now(),
+      now() + DYNAMIC_DAYS * DAY,
+    );
+    this.log(projectId, actor.id, `abriu uma dinâmica do ICP para a linha ${parse(line.data, {}).nome || ''}`.trim());
+    return this.getProject(actorId, projectId);
+  }
+
+  closeDynamic(actorId, projectId, lineId) {
+    const actor = this.user(actorId);
+    this.access(actor, projectId);
+    this.sql.exec('UPDATE dynamics SET closed = 1 WHERE project_id = ? AND line_id = ?', projectId, lineId);
+    return this.getProject(actorId, projectId);
+  }
+
+  openDynamic(token) {
+    const d = this.one('SELECT * FROM dynamics WHERE token = ?', token);
+    if (!d || d.closed || d.expires_at < now()) fail(410, 'Esta dinâmica foi encerrada. Peça um link novo a quem conduz o treinamento.');
+    const project = this.one('SELECT name, archived FROM projects WHERE id = ?', d.project_id);
+    const line = this.one('SELECT data FROM lines WHERE id = ?', d.line_id);
+    if (!project || project.archived || !line) fail(410, 'Esta dinâmica foi encerrada.');
+    return { d, projectName: project.name, lineName: parse(line.data, {}).nome || '' };
+  }
+
+  dynamicInfo(token) {
+    const { d, projectName, lineName } = this.openDynamic(token);
+    const answers = this.one('SELECT COUNT(*) AS n FROM dynamic_answers WHERE token = ?', token).n;
+    return { projectName, lineName, expiresAt: d.expires_at, answers };
+  }
+
+  submitDynamic(token, { nome, cliente, frase }, ip) {
+    const { d } = this.openDynamic(token);
+    const total = this.one('SELECT COUNT(*) AS n FROM dynamic_answers WHERE token = ?', token).n;
+    if (total >= 200) fail(429, 'Esta dinâmica já recebeu o máximo de respostas');
+    const recent = this.one('SELECT COUNT(*) AS n FROM dynamic_answers WHERE ip = ? AND created_at > ?', ip || '', now() - 3_600_000).n;
+    if (recent >= 30) fail(429, 'Muitas respostas seguidas deste aparelho. Tente mais tarde.');
+    const name = String(nome || '').trim().slice(0, 80);
+    if (!name) fail(400, 'Informe seu nome');
+    if (!cliente?.dor?.trim()) fail(400, 'Conte a dor do cliente');
+    this.sql.exec(
+      'INSERT INTO dynamic_answers (id, project_id, line_id, token, nome, data, ip, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      crypto.randomUUID(),
+      d.project_id,
+      d.line_id,
+      token,
+      name,
+      JSON.stringify({ ...cliente, frase: String(frase || '').trim().slice(0, 400) }),
+      ip || '',
+      now(),
+    );
+    this.log(d.project_id, 'dinamica', `recebeu a resposta de ${name}`);
+    return { ok: true };
+  }
+
+  deleteAnswer(actorId, projectId, answerId) {
+    const actor = this.user(actorId);
+    this.access(actor, projectId);
+    this.sql.exec('DELETE FROM dynamic_answers WHERE id = ? AND project_id = ?', answerId, projectId);
+    return this.getProject(actorId, projectId);
   }
 
   // ---------- time ----------

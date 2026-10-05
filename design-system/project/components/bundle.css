@@ -182,3 +182,7 @@ textarea.dq-field-input { resize: vertical; min-height: 96px; background-image: 
 .dq-track-btn { all: unset; display: contents; cursor: pointer; }
 .dq-track-btn:focus-visible .dq-track-sq { box-shadow: var(--focus-ring); }
 .dq-track-step[aria-current="step"] .dq-track-name { color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--blue); text-underline-offset: 3px; }
+
+/* ClueTrack: casa bônus é redonda */
+.dq-track-bonus .dq-track-sq { border-radius: var(--radius-pin); }
+.dq-track-bonus .dq-track-name { color: var(--green); }

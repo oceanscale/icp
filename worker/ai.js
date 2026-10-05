@@ -169,21 +169,71 @@ const ADS_SCHEMA = object({
   leitura_referencias: str(
     'O que os anúncios de referência mostram (ângulos, formatos, ofertas) e a brecha que esta empresa pode ocupar, em até 4 frases. String vazia se não houver referência.',
   ),
-  pautas: list(
-    '3 a 5 pautas para a semana, variando fase do funil e formato, sem repetir títulos de semanas anteriores.',
+  anuncios: list(
+    '3 a 5 anúncios de mídia paga para a semana, variando fase do funil, formato e plataforma pedida. Não repita títulos de semanas anteriores.',
     object({
       plataforma: oneOf(['Meta', 'Google', 'LinkedIn', 'TikTok'], 'Plataforma.'),
-      posicionamento: str('Feed, Stories, Reels, Search, Display etc.'),
-      formato: str('Formato curto. Ex.: "Carrossel 5 cards", "Vídeo 20 s", "Search RSA".'),
+      objetivo_campanha: str('Objetivo da campanha na plataforma e a métrica principal. Ex.: "Mensagens no WhatsApp; custo por conversa".'),
+      publico: str('Segmentação em uma frase: região ou raio, idade, interesses, cargos ou intenção de busca.'),
+      posicionamento: str('Feed, Stories, Reels, Pesquisa, Display etc.'),
+      formato: str('Formato curto. Ex.: "Carrossel 5 cards", "Vídeo 20 s", "Anúncio de pesquisa".'),
       proporcao: oneOf(['1:1', '4:5', '9:16', '1.91:1', '16:9'], 'Proporção do criativo.'),
       fase: oneOf(['Topo', 'Meio', 'Fundo'], 'Fase do funil.'),
       foco: oneOf(['Dor', 'Prova', 'Oferta', 'Objeção', 'Bastidor', 'Autoridade'], 'Foco do criativo.'),
-      headline: str('Título do anúncio.'),
-      copy: str('Texto do anúncio, até 4 frases curtas, com quebras de linha.'),
-      cta: str('Chamada para ação.'),
-      pauta_visual: str('Pauta para quem vai produzir: o que aparece em cada cena ou card.'),
+      gancho: str('O que aparece ou é dito nos primeiros 3 segundos (vídeo) ou no topo da imagem.'),
+      texto_principal: str('Texto principal do anúncio, até 4 frases curtas, com quebras de linha.'),
+      titulo: str('Título do anúncio, até 40 caracteres.'),
+      descricao: str('Descrição curta, até 30 caracteres, ou string vazia se a plataforma não usar.'),
+      cta: str('Botão de chamada para ação da plataforma. Ex.: "Enviar mensagem", "Saiba mais", "Cadastre-se".'),
+      criativo: str('O que produzir: cenas, cards ou elementos visuais, em até 3 frases.'),
     }),
   ),
+});
+
+const JORNADA_SCHEMA = object({
+  resumo: str('A jornada de compra do ICP em 2 frases.'),
+  etapas: list(
+    '4 etapas na ordem: descoberta, consideração, decisão e pós-compra.',
+    object({
+      nome: str('Nome da etapa. Ex.: "Descoberta".'),
+      momento: str('O que está acontecendo na vida ou no negócio do cliente nesta etapa, em uma frase.'),
+      pensa: str('O que a pessoa pensa ou sente, em primeira pessoa e entre aspas.'),
+      perguntas: list('2 ou 3 perguntas que ela faz ou digita no Google.'),
+      onde_esta: list('2 a 4 lugares onde está a atenção dela nesta etapa (rede social, busca, grupo, evento, indicação).'),
+      conteudo: list('2 ou 3 conteúdos ou mensagens que impactam nesta etapa.'),
+      papel_da_empresa: str('O que a empresa precisa fazer aqui, em uma frase.'),
+    }),
+  ),
+  midias: list(
+    '5 a 8 mídias e canais que o ICP consome, do mais para o menos relevante.',
+    object({
+      canal: str('Canal ou mídia. Ex.: "Instagram", "Google", "Grupos de WhatsApp", "Eventos do setor".'),
+      peso: oneOf(['alto', 'medio', 'baixo'], 'Quanto da atenção do ICP está ali.'),
+      como_usa: str('Como e quando usa esse canal, em uma frase.'),
+    }),
+  ),
+  fontes_confianca: list('3 a 5 pessoas, perfis ou instituições em quem o ICP confia antes de decidir (tipos, não nomes reais).'),
+  gatilhos: list('3 a 5 momentos ou sinais que disparam a busca por solução.'),
+  conteudos_que_convertem: list('3 a 5 formatos de conteúdo que levam à conversa comercial.'),
+});
+
+const CONTEUDO_SCHEMA = object({
+  linha_editorial: str('A linha editorial das redes sociais desta linha em 2 frases: para quem fala, sobre o quê e com que tom.'),
+  pilares: list('3 ou 4 pilares de conteúdo.', object({ nome: str('Nome do pilar.'), objetivo: str('Para que serve, em uma frase.') })),
+  posts: list(
+    '5 a 7 posts orgânicos para a semana, de segunda a domingo, variando formato e pilar.',
+    object({
+      dia: oneOf(['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'], 'Dia da semana.'),
+      rede: oneOf(['Instagram', 'LinkedIn', 'TikTok', 'YouTube', 'Facebook', 'Blog'], 'Rede.'),
+      formato: str('Carrossel, Reels, Stories, post único, artigo etc.'),
+      pilar: str('Pilar de conteúdo.'),
+      tema: str('Tema do post.'),
+      gancho: str('Primeira frase ou primeira cena.'),
+      roteiro: str('Roteiro curto ou estrutura dos cards, em até 4 frases.'),
+      cta: str('Chamada para ação.'),
+    }),
+  ),
+  ideias_extras: list('3 ideias de conteúdo para as próximas semanas.'),
 });
 
 const AUTOMACOES_SCHEMA = object({
@@ -204,7 +254,15 @@ const AUTOMACOES_SCHEMA = object({
       nome: str('Nome em snake_case.'),
       categoria: oneOf(['marketing', 'utilidade', 'autenticacao', 'servico'], 'Categoria da Meta; servico é resposta dentro da janela de 24 horas.'),
       quando: str('Quando enviar.'),
-      texto: str('Texto com variáveis {{1}}, {{2}}.'),
+      texto: str('Texto com variáveis {{1}}, {{2}} no padrão da Meta.'),
+      variaveis: list(
+        'Uma entrada para cada variável usada no texto, na ordem.',
+        object({
+          numero: int('Número da variável: 1 para {{1}}, 2 para {{2}}.'),
+          tipo: oneOf(['nome_lead', 'empresa_lead', 'nome_vendedor', 'empresa_vendedor', 'data', 'horario', 'link', 'outro'], 'O que a variável representa.'),
+          exemplo: str('Exemplo do valor, para o tipo outro. String vazia nos demais.'),
+        }),
+      ),
       dentro_janela: { type: 'boolean', description: 'true se for enviado dentro da janela de 24 horas aberta pelo cliente.' },
     }),
   ),
@@ -263,7 +321,7 @@ function caseBlock(ctx, include = []) {
     `Linha de produto desta pasta: ${compact(ctx.line)}`,
   ];
   if (ctx.otherLines.length) parts.push(`Outras linhas da empresa: ${ctx.otherLines.join('; ')}`);
-  const labels = { icp: 'ICP já definido', playbook: 'Playbook já definido', roteiros: 'Roteiros já definidos', funil: 'Funil já definido' };
+  const labels = { icp: 'ICP já definido', playbook: 'Playbook já definido', roteiros: 'Roteiros já definidos', jornada: 'Jornada de compra já mapeada', funil: 'Funil já definido' };
   for (const kind of include) if (ctx.docs[kind]) parts.push(`${labels[kind]}: ${compact(ctx.docs[kind])}`);
   return `<caso>\n${parts.join('\n\n')}\n</caso>`;
 }
@@ -282,6 +340,7 @@ ${caseBlock(ctx)}
 <caso>
 Entrevista de carteira (${clientes.length} clientes reais informados): ${compact(clientes)}
 Observações do consultor: ${input.observacoes || 'nenhuma'}
+Respostas da dinâmica com o time de vendas (${ctx.answers.length}; é a visão dos vendedores, use como apoio e não como cliente real): ${compact(ctx.answers.slice(0, 15))}
 </caso>
 
 Com menos de 3 clientes reais, marque confianca como hipotese e deixe claro na nota o que falta. O secundário é o segundo perfil que mais compra ou o perfil adjacente com maior potencial.`,
@@ -309,9 +368,19 @@ ${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp), playbook: ctx.docs.pla
 export function writeFunil(env, ctx) {
   return structuredCall(env, {
     schema: FUNIL_SCHEMA,
-    content: `Desenhe o funil de vendas desta linha para ser implantado como Kanban no CRM do cliente: etapas, critérios de passagem, dono, prazo e conversão de referência.
+    content: `Desenhe o funil de vendas desta linha para ser implantado como Kanban no CRM do cliente: etapas, critérios de passagem, dono, prazo e conversão de referência. Respeite a jornada de compra já mapeada.
 
-${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp), playbook: ctx.docs.playbook && { criterio_qualificacao: ctx.docs.playbook.criterio_qualificacao, indicadores: ctx.docs.playbook.indicadores } } }, ['icp', 'playbook'])}`,
+${caseBlock(
+      {
+        ...ctx,
+        docs: {
+          icp: icpSlim(ctx.docs.icp),
+          playbook: ctx.docs.playbook && { criterio_qualificacao: ctx.docs.playbook.criterio_qualificacao, indicadores: ctx.docs.playbook.indicadores },
+          jornada: ctx.docs.jornada && { resumo: ctx.docs.jornada.resumo, etapas: (ctx.docs.jornada.etapas || []).map((e) => ({ nome: e.nome, papel_da_empresa: e.papel_da_empresa })) },
+        },
+      },
+      ['icp', 'playbook', 'jornada'],
+    )}`,
   });
 }
 
@@ -334,19 +403,21 @@ ${caseBlock(
   });
 }
 
-export function writeAds(env, ctx, { plataformas, objetivo, referencias, prints }) {
+export function writeAds(env, ctx, { plataformas, objetivo, concorrente, referencias, prints }) {
   const refs = (referencias || []).map((r) => `- ${r.plataforma}: ${r.url}${r.nota ? ` (${r.nota})` : ''}`).join('\n');
+  const jornada = ctx.docs.jornada && { midias: ctx.docs.jornada.midias, conteudos_que_convertem: ctx.docs.jornada.conteudos_que_convertem };
   const content = [
     ...prints.map((p) => ({ type: 'image', source: { type: 'base64', media_type: p.media_type, data: p.data } })),
     {
       type: 'text',
-      text: `Sugira as pautas de anúncio da semana para esta linha${plataformas.length ? `, nas plataformas: ${plataformas.join(', ')}` : ''}.
+      text: `Crie os anúncios de mídia paga da semana para esta linha${plataformas.length ? `, nas plataformas: ${plataformas.join(', ')}` : ''}. São anúncios para veicular com verba, não posts orgânicos.
 Objetivo da semana: ${objetivo || 'não informado'}.
 
-${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp) } }, ['icp'])}
+${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp), jornada } }, ['icp', 'jornada'])}
 
 <referencias>
-Links de bibliotecas de anúncios de concorrentes informados pelo usuário (o conteúdo dos links não foi lido; use só o que aparece nas imagens anexadas, quando houver):
+Concorrente pesquisado: ${concorrente || 'não informado'}
+Links de bibliotecas de anúncios informados pelo usuário (o conteúdo dos links não foi lido; use só o que aparece nas imagens anexadas, quando houver):
 ${refs || 'nenhum'}
 Imagens anexadas: ${prints.length}
 </referencias>
@@ -357,4 +428,23 @@ Títulos já usados em semanas anteriores (não repita): ${ctx.headlines.join(' 
   return structuredCall(env, { schema: ADS_SCHEMA, content });
 }
 
-export const GENERATORS = { icp: writeIcp, playbook: writePlaybook, roteiros: writeRoteiros, funil: writeFunil, automacoes: writeAutomacoes };
+export function writeJornada(env, ctx) {
+  return structuredCall(env, {
+    schema: JORNADA_SCHEMA,
+    content: `Mapeie a jornada de compra do ICP desta linha: etapas, onde está a atenção em cada uma, mídias que consome, em quem confia, gatilhos e conteúdos que levam à conversa comercial. Seja específico ao segmento e à região do caso; quando for suposição, escreva de forma que o time possa conferir com clientes.
+
+${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp), roteiros: ctx.docs.roteiros && { objecoes_rapidas: ctx.docs.roteiros.objecoes_rapidas } } }, ['icp', 'roteiros'])}`,
+  });
+}
+
+export function writeConteudo(env, ctx) {
+  const jornada = ctx.docs.jornada && { midias: ctx.docs.jornada.midias, etapas: (ctx.docs.jornada.etapas || []).map((e) => ({ nome: e.nome, conteudo: e.conteudo })), conteudos_que_convertem: ctx.docs.jornada.conteudos_que_convertem };
+  return structuredCall(env, {
+    schema: CONTEUDO_SCHEMA,
+    content: `Monte o plano de conteúdo orgânico da semana para as redes sociais desta linha: linha editorial, pilares e posts dia a dia. É conteúdo orgânico, não anúncio.
+
+${caseBlock({ ...ctx, docs: { icp: icpSlim(ctx.docs.icp), jornada } }, ['icp', 'jornada'])}`,
+  });
+}
+
+export const GENERATORS = { icp: writeIcp, playbook: writePlaybook, roteiros: writeRoteiros, jornada: writeJornada, funil: writeFunil, automacoes: writeAutomacoes, conteudo: writeConteudo };

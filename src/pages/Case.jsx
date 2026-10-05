@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CaseFile, ClueTrack, FolderTabs, Stamp } from '../ds/index.jsx';
-import { PASTAS } from '../../shared/game.js';
+import { ALL_PASTAS, PASTAS } from '../../shared/game.js';
 import { api } from '../lib/api.js';
 import { dateLabel, pad3 } from '../lib/format.js';
 import Missions from '../components/Missions.jsx';
@@ -11,21 +11,24 @@ import Empresa from '../pastas/Empresa.jsx';
 import Icp from '../pastas/Icp.jsx';
 import Playbook from '../pastas/Playbook.jsx';
 import Roteiros from '../pastas/Roteiros.jsx';
+import Jornada from '../pastas/Jornada.jsx';
+import Conteudo from '../pastas/Conteudo.jsx';
 import Funil from '../pastas/Funil.jsx';
 import Ads from '../pastas/Ads.jsx';
 import Automacoes from '../pastas/Automacoes.jsx';
 import Simulador from '../pastas/Simulador.jsx';
 
-const VIEWS = { empresa: Empresa, icp: Icp, playbook: Playbook, roteiros: Roteiros, funil: Funil, ads: Ads, automacoes: Automacoes, simulador: Simulador };
+const VIEWS = { empresa: Empresa, icp: Icp, playbook: Playbook, roteiros: Roteiros, jornada: Jornada, funil: Funil, ads: Ads, automacoes: Automacoes, simulador: Simulador, conteudo: Conteudo };
 
 function Locked({ pastas, index }) {
-  const prev = pastas[index - 1];
-  const prevDef = PASTAS[index - 1];
-  const def = PASTAS[index];
+  const def = ALL_PASTAS[index];
+  const prevIndex = def.bonus ? ALL_PASTAS.findIndex((p) => p.id === def.after) : index - 1;
+  const prev = pastas[prevIndex];
+  const prevDef = ALL_PASTAS[prevIndex];
   const missing = prev ? prev.missions.filter((m) => m.key && !m.done).map((m) => m.label) : [];
   return (
     <div className="locked">
-      <Stamp tone="ink">Pasta trancada</Stamp>
+      <Stamp tone="ink">{def.bonus ? 'Bônus trancado' : 'Pasta trancada'}</Stamp>
       <h2 className="dq-case-title">
         {def.code} {def.label}
       </h2>
@@ -44,7 +47,7 @@ function NoLine() {
   return (
     <div className="locked">
       <Stamp tone="ink">Sem linha de produto</Stamp>
-      <p>As pastas 02 a 08 são montadas para cada linha de produto. Cadastre a primeira linha na pasta 01 Empresa.</p>
+      <p>As pastas 02 a 09 são montadas para cada linha de produto. Cadastre a primeira linha na pasta 01 Empresa.</p>
     </div>
   );
 }
@@ -57,10 +60,13 @@ function celebrationFor(before, after, lineId) {
   const prev = pastasOf(before);
   const next = pastasOf(after);
   for (let i = 0; i < next.length; i++) {
-    if (next[i].state === 'done' && prev[i]?.state !== 'done') return { title: 'Pasta resolvida', subtitle: `${PASTAS[i].code} ${PASTAS[i].label} · +50 XP para o caso` };
+    if (next[i].state === 'done' && prev[i]?.state !== 'done') return { title: 'Pasta resolvida', subtitle: `${ALL_PASTAS[i].code} ${ALL_PASTAS[i].label} · +50 XP para o caso` };
   }
   for (let i = 0; i < next.length; i++) {
-    if (next[i].state === 'open' && prev[i]?.state === 'locked') return { title: 'Pasta aberta', subtitle: `${PASTAS[i].code} ${PASTAS[i].label} liberada` };
+    if (next[i].state === 'open' && prev[i]?.state === 'locked') {
+      const def = ALL_PASTAS[i];
+      return def.bonus ? { title: 'Bônus desbloqueado', subtitle: `Pasta ${def.label} liberada · XP extra` } : { title: 'Pasta aberta', subtitle: `${def.code} ${def.label} liberada` };
+    }
   }
   return null;
 }
@@ -120,14 +126,14 @@ export default function CasePage({ route, user }) {
   if (!data) return <div className="page muted">Abrindo o caso...</div>;
 
   const line = data.lines.find((l) => l.id === lineId) || null;
-  const pastas = line ? data.game.lines[line.id].pastas : [data.game.empresa, ...PASTAS.slice(1).map((p) => ({ id: p.id, state: 'locked', missions: [] }))];
-  const index = PASTAS.findIndex((p) => p.id === pasta);
+  const pastas = line ? data.game.lines[line.id].pastas : [data.game.empresa, ...ALL_PASTAS.slice(1).map((p) => ({ id: p.id, bonus: Boolean(p.bonus), state: 'locked', missions: [] }))];
+  const index = ALL_PASTAS.findIndex((p) => p.id === pasta);
   const current = pastas[index];
   const View = VIEWS[pasta];
   const { project, game } = data;
 
-  const tabs = PASTAS.map((p, i) => ({ id: p.id, code: p.code, label: p.label, done: pastas[i].state === 'done', locked: pastas[i].state === 'locked' }));
-  const steps = PASTAS.map((p, i) => ({ id: p.id, code: p.code, label: p.label, state: pastas[i].state === 'open' ? 'current' : pastas[i].state, active: p.id === pasta }));
+  const tabs = ALL_PASTAS.map((p, i) => ({ id: p.id, code: p.code, label: p.bonus ? `Bônus · ${p.label}` : p.label, done: pastas[i].state === 'done', locked: pastas[i].state === 'locked' }));
+  const steps = ALL_PASTAS.map((p, i) => ({ id: p.id, code: p.code, label: p.bonus ? 'Bônus' : p.label, bonus: p.bonus, state: pastas[i].state === 'open' ? 'current' : pastas[i].state, active: p.id === pasta }));
 
   let content;
   if (!line && pasta !== 'empresa') content = <NoLine />;

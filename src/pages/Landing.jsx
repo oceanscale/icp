@@ -174,7 +174,7 @@ export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
             <Stamp tone="danger">Confidencial</Stamp>
           </div>
 
-          <ol className="lp-track" aria-label="As 8 pastas do caso">
+          <ol className="lp-track" aria-label="As 9 pastas do caso">
             {PASTAS.map((p, i) => {
               const st = i < index ? 'done' : i === index ? 'current' : 'locked';
               return (
@@ -187,7 +187,7 @@ export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
           </ol>
           <p className="lp-level">
             <span className="dq-label">Nível do caso</span>
-            <span className="lp-level-name">{index >= PASTAS.length ? 'Escalável' : index >= 6 ? 'Previsível' : index >= 4 ? 'Processo definido' : index >= 2 ? 'Estruturando' : 'Improviso'}</span>
+            <span className="lp-level-name">{index >= PASTAS.length ? 'Escalável' : index >= 7 ? 'Previsível' : index >= 5 ? 'Processo definido' : index >= 2 ? 'Estruturando' : 'Improviso'}</span>
           </p>
         </div>
 

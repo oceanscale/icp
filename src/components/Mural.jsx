@@ -1,5 +1,6 @@
 import React from 'react';
 import { ago } from '../lib/format.js';
+import Avatar from './Avatar.jsx';
 
 /** Mural do time: ranking de XP e o que aconteceu no caso. */
 export default function Mural({ data }) {
@@ -14,9 +15,7 @@ export default function Mural({ data }) {
           {ranking.slice(0, 6).map((r, i) => (
             <li key={r.userId} className="rank-row">
               <span className="rank-pos">{i + 1}</span>
-              <span className="avatar" aria-hidden="true">
-                {(names[r.userId] || '?').slice(0, 1).toUpperCase()}
-              </span>
+              <Avatar userId={r.userId} name={names[r.userId]} avatarAt={data.avatars?.[r.userId]} />
               <span className="rank-name">{names[r.userId] || 'Ex-participante'}</span>
               <span className="rank-bar" aria-hidden="true">
                 <i style={{ width: `${Math.round((r.xp / top) * 100)}%` }} />

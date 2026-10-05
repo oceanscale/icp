@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Button, Field } from '../ds/index.jsx';
 import { api } from '../lib/api.js';
 import { Block, PastaHead } from './common.jsx';
+import { useAutosave } from '../lib/autosave.js';
+import { AutosaveTip, SaveStatus } from '../components/SaveStatus.jsx';
 
 const EMPRESA_FIELDS = [
   ['pitch', 'Elevator pitch', 'Quem vocês são e o que fazem, em até 3 frases.'],
@@ -78,7 +80,6 @@ function LineForm({ data, line, onUpdate, onCancel, onDone }) {
 export default function Empresa({ data, onUpdate }) {
   const [form, setForm] = useState(() => Object.fromEntries(EMPRESA_FIELDS.map(([k]) => [k, data.empresa?.data?.[k] || ''])));
   const [meta, setMeta] = useState({ name: data.project.name, segment: data.project.segment || '', city: data.project.city || '' });
-  const [status, setStatus] = useState('');
   const [editing, setEditing] = useState(data.lines.length ? null : 'new');
   const pid = data.project.id;
   const isGestor = data.me.projectRole === 'gestor';
@@ -87,27 +88,25 @@ export default function Empresa({ data, onUpdate }) {
     if (!data.lines.length) setEditing('new');
   }, [data.lines.length]);
 
-  const save = async (e) => {
-    e.preventDefault();
-    setStatus('Salvando...');
-    try {
-      if (isGestor && (meta.name !== data.project.name || meta.segment !== (data.project.segment || '') || meta.city !== (data.project.city || ''))) {
-        await api(`/projects/${pid}`, { method: 'PUT', body: meta });
-      }
-      onUpdate(await api(`/projects/${pid}/empresa`, { method: 'PUT', body: form }));
-      setStatus('Pasta salva.');
-    } catch (err) {
-      setStatus(err.message);
-    }
-  };
+  const auto = useAutosave(form, async (v) => onUpdate(await api(`/projects/${pid}/empresa`, { method: 'PUT', body: v })));
+  const autoMeta = useAutosave(
+    meta,
+    async (v) => {
+      if (!v.name.trim()) throw new Error('informe o nome da empresa');
+      onUpdate(await api(`/projects/${pid}`, { method: 'PUT', body: v }));
+    },
+    { enabled: isGestor },
+  );
+  const shown = autoMeta.status !== 'saved' ? autoMeta : auto;
 
   return (
     <div className="pasta">
-      <PastaHead code="01" title="Empresa">
+      <PastaHead code="01" title="Empresa" actions={<SaveStatus {...shown} onRetry={shown.flush} />}>
         A base do caso: quem é a empresa, como vende hoje e quais linhas de produto vão ganhar um processo comercial próprio.
       </PastaHead>
 
-      <form className="stack-5" onSubmit={save}>
+      <AutosaveTip />
+      <div className="stack-5">
         {isGestor ? (
           <Block title="Dados do caso">
             <div className="grid-3">
@@ -124,15 +123,7 @@ export default function Empresa({ data, onUpdate }) {
             ))}
           </div>
         </Block>
-        <div className="row-3">
-          <Button type="submit">Salvar pasta</Button>
-          {status ? (
-            <span className="small muted" role="status">
-              {status}
-            </span>
-          ) : null}
-        </div>
-      </form>
+      </div>
 
       <Block
         title="Linhas de produto"

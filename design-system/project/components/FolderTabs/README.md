@@ -6,4 +6,4 @@ As pastas numeradas do dossiê: abas de arquivo que trocam o conteúdo do painel
 - `active` e `onChange(id)`: componente controlado. As setas, Home e End trocam de pasta.
 - `children`: o conteúdo da pasta ativa, renderizado no painel `paper-raised`.
 - `label`: rótulo acessível do tablist (padrão "Pastas do dossiê"); `idBase` se houver mais de um na página.
-- Ordem do app: 01 Empresa, 02 ICP, 03 Playbook, 04 Roteiros, 05 Funil, 06 Ads, 07 Automações, 08 Simulador. Não passe de oito pastas; em telas estreitas a fileira rola na horizontal.
+- Ordem do app: 01 Empresa, 02 ICP, 03 Playbook, 04 Roteiros, 05 Jornada, 06 Funil, 07 Anúncios, 08 Automações, 09 Simulador e a aba bônus. Cada aba tem `title` com código e nome; no app, com 10 pastas, as abas fechadas mostram só o número em telas médias. Não passe de oito pastas; em telas estreitas a fileira rola na horizontal.
