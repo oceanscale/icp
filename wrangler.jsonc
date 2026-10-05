@@ -1,0 +1,25 @@
+// Cloudflare Workers: serve o build do Vite (dist/) e a API em /api/* (worker/index.js).
+// Deploy pelo painel (Workers Builds): build "npm run build", deploy "npx wrangler deploy".
+// Segredos em Configurações > Variáveis e segredos (tipo Segredo): ANTHROPIC_API_KEY e SETUP_TOKEN.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dossie-icp",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true },
+  // Variáveis de texto ficam aqui: o deploy apaga as que existem só no painel. Segredos continuam no painel.
+  // ADS_WEEKLY_LIMIT: pedidos de pauta de anúncio por linha por semana. AI_MODEL: claude-opus-5-5 (padrão) ou claude-sonnet-5-5.
+  "vars": { "ADS_WEEKLY_LIMIT": "3" },
+  // Retrato do decisor (worker/images.js). Workers AI tem cota diária gratuita.
+  "ai": { "binding": "AI" },
+  // Banco do sistema (worker/store.js): usuários, casos, pastas e missões. SQLite no Durable Object funciona no plano grátis.
+  "durable_objects": { "bindings": [{ "name": "DOSSIE", "class_name": "DossieStore" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DossieStore"] }]
+}

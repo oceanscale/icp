@@ -1,0 +1,74 @@
+/* Gerado por scripts/build-tokens.mjs. Não edite: altere design-system/project/tokens.json. */
+:root, [data-theme="papel"] {
+  --paper: #f4efe2;
+  --paper-raised: #fcfaf4;
+  --paper-deep: #e7dfcb;
+  --line: #d8cdb5;
+  --line-strong: #857a68;
+  --ink: #1e2a38;
+  --ink-muted: #57616c;
+  --blue: #1f4f8f;
+  --blue-soft: #dde7f2;
+  --on-blue: #fcfaf4;
+  --green: #2c6a4b;
+  --green-soft: #dcebe0;
+  --on-green: #fcfaf4;
+  --danger: #a03a28;
+  --danger-soft: #f5e0da;
+  --on-danger: #fcfaf4;
+  --note: #eaf0d4;
+  --frame: #fefdf9;
+  --on-frame: #1e2a38;
+  --tape: #dde7f2cc;
+  --link: var(--blue);
+  --shadow-paper: 0 1px 0 #d8cdb5, 0 2px 4px #1e2a3814;
+  --shadow-pinned: 0 2px 3px #1e2a381f, 0 10px 20px -6px #1e2a3838;
+  --shadow-key: inset 0 -2px 0 #0000002e;
+  --focus-ring: 0 0 0 2px #f4efe2, 0 0 0 4px #1f4f8f;
+}
+[data-theme="noturno"] {
+  --paper: #131b26;
+  --paper-raised: #1b2533;
+  --paper-deep: #0d131b;
+  --line: #2c3a4b;
+  --line-strong: #71819a;
+  --ink: #ece5d4;
+  --ink-muted: #aab3bf;
+  --blue: #8fb5ef;
+  --blue-soft: #1d2e47;
+  --on-blue: #131b26;
+  --green: #86caa3;
+  --green-soft: #173129;
+  --on-green: #131b26;
+  --danger: #f2a290;
+  --danger-soft: #3b2019;
+  --on-danger: #131b26;
+  --note: #2a3424;
+  --frame: #e9e2d0;
+  --on-frame: #1e2a38;
+  --tape: #8fb5ef59;
+  --shadow-paper: 0 1px 0 #0d131b, 0 2px 6px #00000066;
+  --shadow-pinned: 0 2px 3px #00000080, 0 12px 24px -6px #000000b3;
+  --shadow-key: inset 0 -2px 0 #00000059;
+  --focus-ring: 0 0 0 2px #131b26, 0 0 0 4px #8fb5ef;
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-paper: 2px;
+  --radius-tab: 6px;
+  --radius-pin: 9999px;
+  --tilt-note: -2deg;
+  --tilt-photo: 1.5deg;
+  --tilt-stamp: -6deg;
+  --font-display: "Special Elite", "Courier Prime", "Courier New", monospace;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Courier Prime", "Courier New", Courier, monospace;
+  --font-hand: Caveat, "Segoe Print", "Bradley Hand", cursive;
+}

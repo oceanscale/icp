@@ -1,6 +1,6 @@
 # Polaroid
 
-Moldura de foto instantânea para o retrato falado do ICP, presa com fita e levemente inclinada.
+Moldura de foto instantânea para o retrato do decisor (buyer persona), presa com fita e levemente inclinada.
 
 - `src` e `alt`: a imagem gerada e sua descrição. Sem `src`, mostra a área hachurada com `pendingLabel` (padrão "Retrato em revelação").
 - `caption`: legenda em letra de mão (`hand-sm`), por exemplo nome e idade da persona.

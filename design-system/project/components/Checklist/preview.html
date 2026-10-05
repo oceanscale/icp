@@ -2,7 +2,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head><meta charset="utf-8"><title>Checklist · preview</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Special+Elite&display=swap"></head>
 <body>
 <div id="root" class="dq-stage"></div>
 <script>
@@ -18,7 +18,7 @@
   function Demo() {
     var s = React.useState(START), items = s[0], set = s[1];
     return h('div', { style: { width: '100%', maxWidth: 560 } }, h(D.Checklist, {
-      title: 'Playbook · Prospecção', items: items,
+      title: 'Playbook · Prospecção', items: items.map(function (i) { return i.done ? Object.assign({}, i, { meta: 'Ana · +5 XP' }) : i; }),
       onToggle: function (id, v) { set(items.map(function (i) { return i.id === id ? Object.assign({}, i, { done: v }) : i; })); }
     }));
   }
