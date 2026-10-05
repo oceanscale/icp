@@ -93,7 +93,45 @@ function LoginForm({ onLogin }) {
       <Button type="submit" disabled={busy}>
         {busy ? 'Abrindo o arquivo...' : 'Entrar no dossiê'}
       </Button>
-      <p className="muted small">Acesso por convite. Esqueceu a senha? Peça ao gestor do seu caso um link de nova senha.</p>
+      <p className="muted small">
+        Acesso por convite. Esqueceu a senha? Peça ao gestor do seu caso um link de nova senha. Consultor sem ninguém para gerar o link:{' '}
+        <a href="#/recuperar">recuperar acesso</a>.
+      </p>
+    </form>
+  );
+}
+
+function RecoverForm({ onLogin, configured }) {
+  const [form, setForm] = useState({ token: '', email: '', password: '', confirm: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const submit = async (e) => {
+    e.preventDefault();
+    if (form.password !== form.confirm) return setError('As senhas não conferem');
+    setBusy(true);
+    setError('');
+    try {
+      const { user } = await api('/recover', { method: 'POST', body: { token: form.token, email: form.email, password: form.password } });
+      onLogin(user);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="stack-4" onSubmit={submit}>
+      <p className="small">
+        Use o <b>código de recuperação</b>: o valor do segredo <code>SETUP_TOKEN</code> do Worker na Cloudflare. A Cloudflare não mostra o valor de um segredo salvo; se você não lembra, edite o segredo lá e coloque um valor novo.
+      </p>
+      {configured === false ? <p className="small error-text">O segredo SETUP_TOKEN não está configurado no Worker. Crie-o na Cloudflare antes de continuar.</p> : null}
+      <Field label="Código de recuperação" required value={form.token} onChange={set('token')} autoComplete="off" />
+      <Field label="E-mail da conta" type="email" required value={form.email} onChange={set('email')} autoComplete="username" />
+      <Field label="Nova senha" type="password" required value={form.password} onChange={set('password')} hint="Mínimo de 8 caracteres" autoComplete="new-password" />
+      <Field label="Repita a nova senha" type="password" required value={form.confirm} onChange={set('confirm')} autoComplete="new-password" error={error || undefined} />
+      <Button type="submit" disabled={busy}>
+        {busy ? 'Recuperando...' : 'Salvar nova senha e entrar'}
+      </Button>
     </form>
   );
 }
@@ -129,7 +167,7 @@ function SetupForm({ onLogin }) {
   );
 }
 
-export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
+export default function Landing({ mode, onLogin, theme, onToggleTheme }) {
   const typed = useTypewriter();
   const index = useTrackLoop(typed.stamp);
   const [setup, setSetup] = useState(null);
@@ -148,7 +186,8 @@ export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
     root.current.style.setProperty('--my', `${e.clientY - r.top}px`);
   };
 
-  const showSetup = Boolean(setupMode);
+  const showSetup = mode === 'setup';
+  const showRecover = mode === 'recover';
 
   return (
     <div className="lp" ref={root} onPointerMove={lamp}>
@@ -193,8 +232,13 @@ export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
 
         <div className="lp-right">
           <Folders />
-          <CaseFile className="lp-access" clip caseNo={showSetup ? 'Primeiro acesso' : 'Ficha de acesso'} title={showSetup ? 'Abrir o arquivo' : 'Entrar no dossiê'}>
-            {showSetup ? <SetupForm onLogin={onLogin} /> : <LoginForm onLogin={onLogin} />}
+          <CaseFile
+            className="lp-access"
+            clip
+            caseNo={showSetup ? 'Primeiro acesso' : showRecover ? 'Recuperação' : 'Ficha de acesso'}
+            title={showSetup ? 'Abrir o arquivo' : showRecover ? 'Recuperar acesso' : 'Entrar no dossiê'}
+          >
+            {showSetup ? <SetupForm onLogin={onLogin} /> : showRecover ? <RecoverForm onLogin={onLogin} configured={setup?.tokenConfigured} /> : <LoginForm onLogin={onLogin} />}
             {setup?.needsSetup && !showSetup ? (
               <p className="small" style={{ marginTop: 'var(--space-4)' }}>
                 Sistema novo?{' '}
@@ -203,7 +247,7 @@ export default function Landing({ setupMode, onLogin, theme, onToggleTheme }) {
                 </a>
               </p>
             ) : null}
-            {showSetup ? (
+            {showSetup || showRecover ? (
               <p className="small" style={{ marginTop: 'var(--space-4)' }}>
                 <a href="#/">Voltar para o login</a>
               </p>

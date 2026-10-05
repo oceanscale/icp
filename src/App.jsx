@@ -13,6 +13,7 @@ function parseRoute() {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (parts[0] === 'convite' && parts[1]) return { name: 'invite', token: parts[1] };
   if (parts[0] === 'primeiro-acesso') return { name: 'setup' };
+  if (parts[0] === 'recuperar') return { name: 'recover' };
   if (parts[0] === 'dinamica' && parts[1]) return { name: 'dinamica', token: parts[1] };
   if (parts[0] === 'caso' && parts[1]) return { name: 'case', pid: parts[1], lid: parts[2] || null, pasta: parts[3] || null };
   return { name: 'home' };
@@ -61,7 +62,7 @@ export default function App() {
 
   if (route.name === 'invite') return <Invite token={route.token} onDone={(u, pid) => { setUser(u); navigate(pid ? `#/caso/${pid}` : '#/'); }} />;
 
-  if (!user) return <Landing setupMode={route.name === 'setup'} onLogin={(u) => { setUser(u); if (route.name === 'setup') navigate('#/'); }} theme={theme} onToggleTheme={toggleTheme} />;
+  if (!user) return <Landing mode={route.name} onLogin={(u) => { setUser(u); if (route.name === 'setup' || route.name === 'recover') navigate('#/'); }} theme={theme} onToggleTheme={toggleTheme} />;
 
   return (
     <div className="app">

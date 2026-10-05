@@ -193,6 +193,34 @@ export class DossieStore extends DurableObject {
     return { token: await this.newSession(u.id), user: pub(u) };
   }
 
+  // Recuperação de acesso com o código SETUP_TOKEN (conferido pelo Worker): serve quando ninguém pode gerar o link.
+  recoverCheck(ip) {
+    this.checkLock(`recover:${ip || 'desconhecido'}`);
+    return true;
+  }
+
+  recoverFail(ip) {
+    this.registerFail(`recover:${ip || 'desconhecido'}`, 5);
+    return true;
+  }
+
+  async recoverAccount({ email, password, ip }) {
+    this.recoverCheck(ip);
+    const mail = normalizeEmail(email);
+    const u = this.one('SELECT * FROM users WHERE email = ? AND active = 1', mail);
+    if (!u) {
+      this.recoverFail(ip);
+      fail(404, 'Não existe conta com esse e-mail');
+    }
+    const problem = validatePassword(password);
+    if (problem) fail(400, problem);
+    await this.setPassword(u.id, password);
+    this.sql.exec('DELETE FROM sessions WHERE user_id = ?', u.id);
+    this.sql.exec('DELETE FROM attempts WHERE key = ? OR key = ?', `email:${mail}`, `recover:${ip || 'desconhecido'}`);
+    this.sql.exec('UPDATE users SET last_login = ? WHERE id = ?', now(), u.id);
+    return { token: await this.newSession(u.id), user: pub(this.user(u.id)) };
+  }
+
   session(tokenHash) {
     const row = this.one(
       'SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ? AND u.active = 1',

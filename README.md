@@ -64,7 +64,12 @@ O banco (Durable Object `DOSSIE` com SQLite) e o Workers AI (binding `AI`) são 
 
 1. Abra `https://<seu-worker>/#/primeiro-acesso`.
 2. Informe o `SETUP_TOKEN`, seu nome, e-mail e senha. Esse é o primeiro consultor.
-3. O primeiro acesso só funciona uma vez. Depois disso, pode apagar o segredo `SETUP_TOKEN`.
+3. O primeiro acesso só funciona uma vez. Guarde o `SETUP_TOKEN`: ele também é o **código de recuperação**.
+
+### Esqueci a senha
+
+- Membro ou gestor: o gestor do caso (ou um consultor) gera um link de nova senha em **Time do caso > Gerenciar**.
+- Consultor sem ninguém para gerar o link: abra `/#/recuperar` e use o código de recuperação (o valor do segredo `SETUP_TOKEN`). A Cloudflare não mostra o valor de um segredo salvo; se não lembrar, edite o segredo no painel com um valor novo e use esse. Cinco códigos errados do mesmo aparelho bloqueiam por 15 minutos.
 4. Em **Casos > Abrir novo caso**, crie a empresa. No caso, **Time do caso > Convidar** gera o link para o gestor e o time do cliente.
 
 Confira a configuração em `/api/health` (`anthropic` e `portrait` dizem se a IA e o retrato estão ligados).

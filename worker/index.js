@@ -79,6 +79,18 @@ async function route(request, env, url, setCookie) {
     setCookie(sessionCookie(token, url));
     return { user };
   }
+  if (pathname === '/api/recover' && method === 'POST') {
+    const body = await readJson(request);
+    if (!env.SETUP_TOKEN) throw new HttpError('O código de recuperação não está configurado. Crie o segredo SETUP_TOKEN no Worker e tente de novo.', 503);
+    await db.recoverCheck(ip);
+    if (!sameString(String(body.token || ''), env.SETUP_TOKEN)) {
+      await db.recoverFail(ip);
+      throw new HttpError('Código de recuperação incorreto', 403);
+    }
+    const { token, user } = await db.recoverAccount({ email: body.email, password: body.password, ip });
+    setCookie(sessionCookie(token, url));
+    return { user };
+  }
   if (pathname === '/api/login' && method === 'POST') {
     const body = await readJson(request);
     const { token, user } = await db.login({ email: body.email, password: body.password, ip });
