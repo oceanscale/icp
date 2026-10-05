@@ -4,12 +4,12 @@ import { HttpError } from './util.js';
 /*
  * IA do Dossiê ICP (Claude, via SDK oficial da Anthropic). Uma chamada com saída estruturada por pasta;
  * cada uma recebe o caso, a linha de produto e o que as pastas anteriores já produziram.
- * Modelo padrão: Claude Opus 5.5. Para economizar, variável AI_MODEL = claude-sonnet-5-5 no Cloudflare
- * (Sonnet custa metade: US$ 2 / US$ 10 por milhão de tokens, contra US$ 4 / US$ 20).
+ * Modelo padrão: Claude Sonnet 5.5 (US$ 2 / US$ 10 por milhão de tokens, metade do Opus 5.5).
+ * Para usar o Opus 5.5 sem mexer no código: variável AI_MODEL = claude-opus-5-5 no wrangler.jsonc.
  */
 
-const MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5'];
-const DEFAULT_MODEL = 'claude-opus-5-5';
+const MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5'];
+const DEFAULT_MODEL = 'claude-sonnet-5-5';
 export const aiModel = (env) => (MODELS.includes(env.AI_MODEL) ? env.AI_MODEL : DEFAULT_MODEL);
 
 const str = (description) => ({ type: 'string', description });

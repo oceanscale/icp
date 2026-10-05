@@ -15,7 +15,7 @@
   },
   "observability": { "enabled": true },
   // Variáveis de texto ficam aqui: o deploy apaga as que existem só no painel. Segredos continuam no painel.
-  // ADS_WEEKLY_LIMIT: pedidos de pauta de anúncio por linha por semana. AI_MODEL: claude-opus-5-5 (padrão) ou claude-sonnet-5-5.
+  // ADS_WEEKLY_LIMIT: pedidos de pauta de anúncio por linha por semana. AI_MODEL: claude-sonnet-5-5 (padrão) ou claude-opus-5-5.
   "vars": { "ADS_WEEKLY_LIMIT": "3" },
   // Retrato do decisor (worker/images.js). Workers AI tem cota diária gratuita.
   "ai": { "binding": "AI" },

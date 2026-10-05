@@ -50,7 +50,7 @@ Depois do primeiro deploy, em **Configurações > Variáveis e segredos** do Wor
 Variáveis de texto ficam no `wrangler.jsonc` (o deploy apaga as que existem só no painel):
 
 - `ADS_WEEKLY_LIMIT`: pedidos de pauta de anúncio por linha por semana (padrão 3).
-- `AI_MODEL` (opcional): `claude-opus-5-5` é o padrão; `claude-sonnet-5-5` custa metade (US$ 2 / US$ 10 por milhão de tokens contra US$ 4 / US$ 20).
+- `AI_MODEL` (opcional): `claude-sonnet-5-5` é o padrão (US$ 2 / US$ 10 por milhão de tokens); `claude-opus-5-5` custa o dobro (US$ 4 / US$ 20).
 
 O banco (Durable Object `DOSSIE` com SQLite) e o Workers AI (binding `AI`) são criados pelo próprio deploy, sem passo manual.
 
