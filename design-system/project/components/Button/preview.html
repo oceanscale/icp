@@ -1,0 +1,17 @@
+<!-- @dsCard group="Ações" height=88 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Button · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null,
+    h(D.Button, null, 'Gerar retrato falado'),
+    h(D.Button, { variant: 'confirm' }, 'Marcar pasta como resolvida'),
+    h(D.Button, { variant: 'quiet' }, 'Baixar playbook (.pdf)'),
+    h(D.Button, { variant: 'quiet', size: 'sm' }, 'Copiar copy')));
+</script>
+</body>
+</html>

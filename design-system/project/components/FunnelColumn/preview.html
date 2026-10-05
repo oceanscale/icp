@@ -1,0 +1,18 @@
+<!-- @dsCard group="Funil" height=360 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>FunnelColumn · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage dq-desk"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null,
+    h(D.FunnelColumn, { code: 'E2', name: 'Primeiro contato', count: 2, rate: '38%' },
+      h(D.LeadCard, { name: 'Dr. Paulo Mendes', company: 'OdontoVida · Sumaré', value: 'R$ 4.800', days: 2, tag: 'Cold call' }),
+      h(D.LeadCard, { name: 'Clínica Riso', company: 'Valinhos', value: 'R$ 4.800', days: 6, late: true, tag: 'WhatsApp' })),
+    h(D.FunnelColumn, { code: 'E3', name: 'Diagnóstico SPIN', count: 1, rate: '52%' },
+      h(D.LeadCard, { name: 'Dra. Helena Couto', company: 'Sorriso Pleno · Campinas', value: 'R$ 5.700', days: 1, tag: 'Reunião', tagTone: 'green' }))));
+</script>
+</body>
+</html>

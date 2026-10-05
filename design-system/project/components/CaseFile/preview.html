@@ -1,0 +1,19 @@
+<!-- @dsCard group="Dossiê" height=260 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>CaseFile · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage dq-desk"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h('div', { style: { width: '100%', maxWidth: 640, paddingTop: 16 } },
+      h(D.CaseFile, {
+        clip: true, caseNo: 'Caso Nº 014 · aberto em 05 OUT 2026', title: 'Clínica Sorriso Pleno',
+        subtitle: 'Odontologia · Campinas, SP · consultor: Ana Ribeiro',
+        aside: h(D.Stamp, null, 'Em investigação')
+      }, h('p', { style: { margin: 0 } }, 'Treinamento comercial de 6 semanas. Time de 2 recepcionistas que hoje fazem o papel de SDR, sem roteiro e sem cadência definida.'))));
+</script>
+</body>
+</html>

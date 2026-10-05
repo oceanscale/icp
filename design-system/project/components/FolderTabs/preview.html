@@ -1,0 +1,29 @@
+<!-- @dsCard group="Navegação" height=260 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>FolderTabs · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  var TABS = [
+    { id: 'icp', code: '01', label: 'ICP', done: true },
+    { id: 'playbook', code: '02', label: 'Playbook', done: true },
+    { id: 'roteiro', code: '03', label: 'Roteiros' },
+    { id: 'ads', code: '04', label: 'Ads' },
+    { id: 'funil', code: '05', label: 'Funil' },
+    { id: 'auto', code: '06', label: 'Automações' },
+    { id: 'sim', code: '07', label: 'Simulador' }
+  ];
+  function Demo() {
+    var s = React.useState('roteiro'), active = s[0], set = s[1];
+    var tab = TABS.filter(function (t) { return t.id === active; })[0];
+    return h('div', { style: { width: '100%' } }, h(D.FolderTabs, { tabs: TABS, active: active, onChange: set },
+      h('div', { className: 'dq-label' }, 'Pasta ' + tab.code),
+      h('p', { style: { margin: '4px 0 0' } }, 'Conteúdo da pasta ' + tab.label + '. Use as setas do teclado para trocar de pasta.')));
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!-- @dsCard height=320 -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Dossiê ICP</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap">
+<style>
+  html, body { margin:0; height:100%; }
+  body { color:var(--ink); overflow:hidden; }
+  .cover { position:relative; height:320px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:320px; overflow:hidden; }
+  .art svg { display:block; width:480px; height:320px; }
+  .deep { fill:var(--ink); }
+  .green { fill:var(--green); }
+  .tint { fill:var(--line-strong); }
+  .blue { fill:var(--blue); }
+  .win { fill:var(--paper-raised); }
+  .body { rx:var(--radius-paper); }
+  .tab { rx:var(--radius-tab); }
+  .slot { rx:var(--radius-paper); }
+  .words { position:absolute; left:var(--space-6); bottom:var(--space-6); max-width:440px; }
+  .name { margin:0; font-family:var(--font-display); font-weight:400; font-size:104px; line-height:.95; letter-spacing:-.01em; color:var(--ink); }
+  .tag { margin:var(--space-3) 0 0 4px; font-family:var(--font-body); font-size:14px; line-height:20px; color:var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 320" width="480" height="320">
+<!--
+  blocks      four hanging file folders, back to front: ink (band 56) · green (band 56) · line-strong as the relief tint (band 56) · blue in front, 480×112 and the largest field, bleeding off the right and bottom edges; together ≈ 45% of 960×320
+  arrangement a staggered drawer of files: each folder sits space-7 (48) + space-2 lower than the one behind it, its tab stepped right by 120, so the tabs walk diagonally across the box
+  pattern     literal motif, the folder tab from FolderTabs: four tabs 112×32 with radius-tab corners, each with one paper-raised label window cut into it. Chosen because every screen of the app is a numbered folder of the dossier
+  scales      bands space-7 + space-2 (56); tab 112×32 with an 8 overlap; window 64×8 inset space-3; corners radius-paper on bodies and windows, radius-tab on tabs
+-->
+<rect class="deep tab" x="24" y="8" width="112" height="40" rx="6"/>
+<rect class="deep body" x="0" y="40" width="496" height="300" rx="2"/>
+<rect class="win slot" x="36" y="20" width="64" height="8" rx="2"/>
+<rect class="green tab" x="144" y="64" width="112" height="40" rx="6"/>
+<rect class="green body" x="0" y="96" width="496" height="244" rx="2"/>
+<rect class="win slot" x="156" y="76" width="64" height="8" rx="2"/>
+<rect class="tint tab" x="264" y="120" width="112" height="40" rx="6"/>
+<rect class="tint body" x="0" y="152" width="496" height="188" rx="2"/>
+<rect class="win slot" x="276" y="132" width="64" height="8" rx="2"/>
+<rect class="blue tab" x="352" y="176" width="112" height="40" rx="6"/>
+<rect class="blue body" x="0" y="208" width="496" height="132" rx="2"/>
+<rect class="win slot" x="364" y="188" width="64" height="8" rx="2"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Dossiê<br>ICP</h1>
+<p class="tag">Cada empresa é um caso a resolver.</p>
+</div>
+</div>
+</body>
+</html>

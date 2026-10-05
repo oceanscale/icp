@@ -1,0 +1,18 @@
+<!-- @dsCard group="Status" height=96 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Stamp · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null,
+    h(D.Stamp, null, 'Em investigação'),
+    h(D.Stamp, { tone: 'green' }, 'Caso resolvido'),
+    h(D.Stamp, { tone: 'ink' }, 'Confidencial'),
+    h(D.Stamp, { tone: 'danger' }, 'Urgente'),
+    h(D.Stamp, { tone: 'blue', tilt: false }, 'ICP secundário')));
+</script>
+</body>
+</html>

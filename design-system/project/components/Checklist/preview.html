@@ -1,0 +1,28 @@
+<!-- @dsCard group="Playbook" height=380 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Checklist · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  var START = [
+    { id: 'c1', label: 'Elevator pitch escrito em até 3 frases', done: true },
+    { id: 'c2', label: 'ICP principal documentado em uma frase', done: true },
+    { id: 'c3', label: '2 perguntas por etapa do SPIN', hint: 'Situação, Problema, Implicação, Necessidade', done: true },
+    { id: 'c4', label: 'Roteiro de ligação com as 5 partes', hint: 'Abertura, gancho, diagnóstico, proposta, CTA com 2 horários' },
+    { id: 'c5', label: 'Cadência de 15 dias com no mínimo 6 toques' },
+    { id: 'c6', label: 'Banco de objeções com resposta A.R.A.' }
+  ];
+  function Demo() {
+    var s = React.useState(START), items = s[0], set = s[1];
+    return h('div', { style: { width: '100%', maxWidth: 560 } }, h(D.Checklist, {
+      title: 'Playbook · Prospecção', items: items,
+      onToggle: function (id, v) { set(items.map(function (i) { return i.id === id ? Object.assign({}, i, { done: v }) : i; })); }
+    }));
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>
+</body>
+</html>

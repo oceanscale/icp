@@ -1,0 +1,27 @@
+<!-- @dsCard group="Dossiê" height=520 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>IcpFile · preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap"></head>
+<body>
+<div id="root" class="dq-stage dq-desk"></div>
+<script>
+  var D = window.Dossie, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    h('div', { style: { width: '100%' } }, h(D.IcpFile, {
+      name: 'Clínica odontológica de bairro',
+      caption: 'Dra. Marina, 41',
+      summary: 'Clínicas de 3 a 10 cadeiras no interior de SP que lotam a agenda de avaliação mas perdem o paciente antes do orçamento fechado.',
+      stamp: { text: 'Confirmado', tone: 'green' },
+      fields: [
+        { label: 'Segmento e porte', value: 'Odontologia privada, 8 a 25 funcionários, R$ 150 a 600 mil/mês' },
+        { label: 'Dor principal', value: 'Orçamentos de implante parados sem retorno; recepção sem follow-up' },
+        { label: 'Gatilho de compra', value: 'Mês com agenda cheia e faturamento caindo' },
+        { label: 'Ciclo de decisão', value: '7 a 15 dias, 2 reuniões, sócia decide' },
+        { label: 'Decisor', value: 'Dentista sócia-proprietária' },
+        { label: 'Ticket e recorrência', value: 'R$ 4.800 + R$ 900/mês de acompanhamento' }
+      ]
+    })));
+</script>
+</body>
+</html>
