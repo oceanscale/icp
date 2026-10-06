@@ -26,7 +26,7 @@ export default function Tarefa({ token, user }) {
     setError('');
     try {
       const r = await api(`/tarefas/${token}`, { method: 'POST', body: { due } });
-      navigate(`#/caso/${r.projectId}/${r.lineId}/quadro`);
+      navigate(`#/caso/${r.projectId}/${r.lineId || '-'}/quadro`);
     } catch (err) {
       setError(err.message);
       setBusy(false);

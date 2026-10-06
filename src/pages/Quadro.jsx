@@ -68,12 +68,12 @@ export default function Quadro({ token, theme, onToggleTheme }) {
                 {error ? ` Sem conexão agora: ${error}` : ''}
               </p>
             </CaseFile>
-            <Board cards={data.cards} people={data.people} srcFor={srcFor} />
+            <Board cards={data.cards} columns={data.columns} people={data.people} srcFor={srcFor} />
           </>
         )}
       </main>
       <footer className="lp-foot lp-foot-brand">
-        <SeaAds />
+        <SeaAds where="quadro-publico" />
       </footer>
     </div>
   );

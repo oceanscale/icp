@@ -57,6 +57,18 @@ function sanitizeAds(body) {
   return { plataformas, objetivo: str(body.objetivo, 300), concorrente: str(body.concorrente, 120), referencias, prints };
 }
 
+/** Campos de um cartão do quadro; só entram os que vieram no corpo. */
+function cardFields(body) {
+  const out = {};
+  if ('title' in body) out.title = str(body.title, 120);
+  if ('note' in body) out.note = str(body.note, 600);
+  if ('lineId' in body) out.lineId = str(body.lineId, 40);
+  if ('assigneeId' in body) out.assigneeId = body.assigneeId ? str(body.assigneeId, 40) : null;
+  if ('due' in body) out.due = str(body.due, 10);
+  if ('status' in body) out.status = str(body.status, 12);
+  return out;
+}
+
 async function route(request, env, url, setCookie) {
   const { pathname } = url;
   const method = request.method;
@@ -221,6 +233,21 @@ async function route(request, env, url, setCookie) {
     if (method === 'POST') return db.createBoardLink(me, pid, randomToken(24));
     if (method === 'DELETE') return db.revokeBoardLink(me, pid);
   }
+  if (rest === '/quadro/colunas' && method === 'PUT') {
+    const body = await readJson(request);
+    const list = Array.isArray(body.columns) ? body.columns.slice(0, 12).map((c) => ({ id: str(c?.id, 12), title: str(c?.title, 40), hint: str(c?.hint, 80) })) : null;
+    return db.saveColumns(me, pid, list);
+  }
+  if (rest === '/cards' && method === 'POST') {
+    return db.createCard(me, pid, cardFields(await readJson(request)));
+  }
+  const card = /^\/cards\/(x\.[0-9a-f]{8})(\/link)?$/.exec(rest);
+  if (card && !card[2] && method === 'PUT') return db.updateTask(me, pid, null, card[1], cardFields(await readJson(request)));
+  if (card && !card[2] && method === 'DELETE') return db.deleteCard(me, pid, card[1]);
+  if (card && card[2] && method === 'POST') {
+    const r = await db.createTaskLink(me, pid, null, card[1], randomToken(24));
+    return { ...r, link: `${url.origin}/#/tarefa/${r.token}`, token: undefined };
+  }
 
   const answer = /^\/answers\/([0-9a-f-]{36})$/.exec(rest);
   if (answer && method === 'DELETE') return db.deleteAnswer(me, pid, answer[1]);
@@ -252,11 +279,8 @@ async function route(request, env, url, setCookie) {
 
   const task = /^\/tasks\/(pb\.\d{1,3}\.\d{1,3})(\/link)?$/.exec(sub);
   if (task && !task[2] && method === 'PUT') {
-    const body = await readJson(request);
-    const changes = {};
-    if ('assigneeId' in body) changes.assigneeId = body.assigneeId ? str(body.assigneeId, 40) : null;
-    if ('due' in body) changes.due = str(body.due, 10);
-    if ('status' in body) changes.status = str(body.status, 10);
+    const { assigneeId, due, status } = cardFields(await readJson(request));
+    const changes = Object.fromEntries(Object.entries({ assigneeId, due, status }).filter(([, v]) => v !== undefined));
     return db.updateTask(me, pid, lid, task[1], changes);
   }
   if (task && task[2] && method === 'POST') {

@@ -41,8 +41,8 @@ export default function Detective() {
           style={{ animationDelay: `${(((x - START) / (STOP - START)) * walkSeconds).toFixed(2)}s` }}
           transform={`translate(${x} ${i % 2 ? 175 : 167})`}
         >
-          <ellipse cx="0" cy="0" rx="5" ry="2.4" />
-          <ellipse cx="7" cy="0" rx="2.2" ry="2" />
+          <ellipse cx="2" cy="0" rx="5" ry="2.4" />
+          <ellipse cx="-6" cy="0" rx="2.2" ry="2" />
         </g>
       ))}
 

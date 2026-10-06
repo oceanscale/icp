@@ -83,7 +83,7 @@ export default function App() {
         )}
       </main>
       <footer className="app-foot">
-        <SeaAds />
+        <SeaAds where="app" />
       </footer>
     </div>
   );

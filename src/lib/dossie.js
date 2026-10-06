@@ -3,6 +3,7 @@
 import { ALL_PASTAS } from '../../shared/game.js';
 import { brl, dateLabel, dueInfo, num, pad3 } from './format.js';
 import { esc } from './export.js';
+import { seaAdsUrl } from '../components/SeaAds.jsx';
 
 const FONTS =
   'https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=Special+Elite&display=swap';
@@ -79,7 +80,7 @@ ul { margin: 0 0 2mm; padding-left: 5mm; }
 .bar i { display: block; height: 4.2mm; min-width: 1.5mm; background: #1f4f8f; border-radius: 1px; }
 .bar:nth-child(2) i { background: #4d77b0; } .bar:nth-child(3) i { background: #2c6a4b; } .bar:nth-child(4) i { background: #1e2a38; }
 .bar em { font: 700 9pt "Courier Prime", monospace; font-style: normal; }
-.brand { display: flex; align-items: center; justify-content: flex-end; gap: 2mm; font: 700 7pt/1 "Courier Prime", monospace; letter-spacing: .1em; text-transform: uppercase; color: #57616c; }
+.brand { display: flex; align-items: center; justify-content: flex-end; gap: 2mm; text-decoration: none; font: 700 7pt/1 "Courier Prime", monospace; letter-spacing: .1em; text-transform: uppercase; color: #57616c; }
 .brand img { height: 6mm; width: auto; }
 `;
 
@@ -213,7 +214,8 @@ export async function exportDossie(data, line, user) {
   const names = data.names || {};
   const image = data.images[lineId] ? await imageData(data.images[lineId].id) : null;
   const logo = await toDataUrl('/brand/sea-ads.png');
-  const brand = logo ? `<div class="brand">Um sistema <img src="${logo}" alt="Sea-Ads Marketing"></div>` : '<div class="brand">Um sistema Sea-Ads Marketing</div>';
+  const site = seaAdsUrl('dossie-pdf');
+  const brand = `<a class="brand" href="${esc(site)}">${logo ? `<img src="${logo}" alt="Sea-Ads Marketing">` : 'Sea-Ads Marketing'}</a>`;
   const cards = new Map((data.board?.cards || []).filter((c) => c.line_id === lineId).map((c) => [c.mission_id, c]));
   const mainDone = pastas.filter((p) => !p.bonus).every((p) => p.state === 'done');
   const pct = game.level.next ? Math.min(100, Math.round((game.xp / game.level.next) * 100)) : 100;

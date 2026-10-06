@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '../ds/index.jsx';
 import { api } from '../lib/api.js';
-import Board from './Board.jsx';
+import Board, { cardPath } from './Board.jsx';
+import ColumnsModal from './ColumnsModal.jsx';
 import CopyButton from './CopyButton.jsx';
 import Modal from './Modal.jsx';
 import TaskModal from './TaskModal.jsx';
@@ -9,6 +10,8 @@ import TaskModal from './TaskModal.jsx';
 /** Quadro do time dentro do caso: o gestor delega e compartilha; o responsável move os próprios cartões. */
 export default function CaseBoard({ data, onUpdate }) {
   const [open, setOpen] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [editCols, setEditCols] = useState(false);
   const [share, setShare] = useState(false);
   const [error, setError] = useState('');
   const pid = data.project.id;
@@ -25,8 +28,7 @@ export default function CaseBoard({ data, onUpdate }) {
       setError(err.message);
     }
   };
-  const move = (card, status) =>
-    act(async () => onUpdate(await api(`/projects/${pid}/lines/${card.line_id}/tasks/${card.mission_id}`, { method: 'PUT', body: { status } })));
+  const move = (card, status) => act(async () => onUpdate(await api(cardPath(pid, card), { method: 'PUT', body: { status } })));
   const current = open && data.board.cards.find((c) => c.line_id === open.line_id && c.mission_id === open.mission_id);
 
   return (
@@ -37,19 +39,29 @@ export default function CaseBoard({ data, onUpdate }) {
             Quadro do time
           </h2>
           <p className="muted small">
-            Cada item do checklist do playbook vira uma evidência no mural. {isGestor ? 'Clique num cartão para delegar, dar prazo ou gerar o link para alguém assumir.' : 'Arraste os cartões que estão com você ou abra para ajustar o prazo.'}
+            Cada item do checklist do playbook vira uma evidência no mural.{' '}
+            {isGestor ? 'Clique num cartão para delegar, dar prazo ou gerar o link para alguém assumir. Você também prega cartões extras e organiza as colunas.' : 'Arraste os cartões que estão com você ou abra para ajustar o prazo.'}
           </p>
         </div>
         {isGestor ? (
-          <Button variant="quiet" size="sm" onClick={() => setShare(true)}>
-            Compartilhar quadro
-          </Button>
+          <div className="row-3">
+            <Button size="sm" onClick={() => setCreating(true)}>
+              + Novo cartão
+            </Button>
+            <Button variant="quiet" size="sm" onClick={() => setEditCols(true)}>
+              Editar colunas
+            </Button>
+            <Button variant="quiet" size="sm" onClick={() => setShare(true)}>
+              Compartilhar quadro
+            </Button>
+          </div>
         ) : null}
       </div>
       {error ? <p className="error-text">{error}</p> : null}
 
       <Board
         cards={data.board.cards}
+        columns={data.board.columns}
         people={people}
         meId={data.me.id}
         canMove={(card) => isGestor || card.assignee_id === data.me.id}
@@ -58,6 +70,8 @@ export default function CaseBoard({ data, onUpdate }) {
       />
 
       {current ? <TaskModal data={data} card={current} onClose={() => setOpen(null)} onUpdate={onUpdate} /> : null}
+      {creating ? <TaskModal data={data} card={null} onClose={() => setCreating(false)} onUpdate={onUpdate} /> : null}
+      {editCols ? <ColumnsModal data={data} onClose={() => setEditCols(false)} onUpdate={onUpdate} /> : null}
 
       {share ? (
         <Modal title="Compartilhar o quadro" onClose={() => setShare(false)}>

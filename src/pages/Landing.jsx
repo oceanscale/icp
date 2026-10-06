@@ -275,7 +275,7 @@ export default function Landing({ mode, onLogin, theme, onToggleTheme }) {
       </section>
       <footer className="lp-foot lp-foot-brand">
         <span className="dq-label">Dossiê ICP · estruturação comercial</span>
-        <SeaAds />
+        <SeaAds where="entrada" />
       </footer>
     </div>
   );
