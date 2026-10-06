@@ -37,7 +37,16 @@ body {
 
 /* FolderTabs */
 .dq-folder { min-width: 0; }
-.dq-tabs { display: flex; gap: 2px; padding-left: var(--space-3); align-items: flex-end; overflow-x: auto; scrollbar-width: none; }
+.dq-tabs-row { display: flex; align-items: flex-end; gap: var(--space-2); }
+.dq-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; padding-left: var(--space-3); align-items: flex-end; overflow-x: auto; scrollbar-width: none; }
+.dq-tabs::-webkit-scrollbar { display: none; }
+.dq-tabs-compact .dq-tab:not([aria-selected="true"]) .dq-tab-label { display: none; }
+.dq-tabs-compact .dq-tab { padding-left: var(--space-3); padding-right: var(--space-3); }
+.dq-tabs-arrows { flex: none; display: flex; gap: 4px; padding-bottom: 6px; }
+.dq-tabs-arrow { width: 32px; height: 32px; display: grid; place-items: center; font: 700 20px/1 var(--font-mono); color: var(--blue); background: var(--paper-raised); border: 1.5px solid var(--line-strong); border-radius: var(--radius-paper); cursor: pointer; }
+.dq-tabs-arrow:hover:not(:disabled) { border-color: var(--blue); }
+.dq-tabs-arrow:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.dq-tabs-arrow:disabled { opacity: .35; cursor: default; }
 .dq-tab { font: 700 13px/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); background: var(--paper-deep); border: 1px solid var(--line-strong); border-bottom: none; border-radius: var(--radius-tab) var(--radius-tab) 0 0; padding: var(--space-3) var(--space-4) var(--space-2); cursor: pointer; display: inline-flex; gap: var(--space-2); align-items: center; position: relative; top: 1px; white-space: nowrap; }
 .dq-tab:hover { color: var(--ink); }
 .dq-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); z-index: 2; }
@@ -88,7 +97,8 @@ body {
 .dq-check-box { flex: none; width: 22px; height: 22px; margin-top: 1px; padding: 0; border: 1.5px solid var(--line-strong); border-radius: var(--radius-paper); background: var(--paper-raised); color: var(--green); display: grid; place-items: center; cursor: pointer; }
 .dq-check-box:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .dq-check-box[aria-checked="true"] { border-color: var(--green); background: var(--green-soft); }
-.dq-check-text { cursor: pointer; font-size: 15px; line-height: 22px; }
+.dq-check-text { flex: 1; min-width: 0; cursor: pointer; font-size: 15px; line-height: 22px; }
+.dq-check-aside { flex: none; display: flex; align-items: center; gap: var(--space-2); margin-top: 1px; }
 .dq-check-meta { display: block; font: 700 11px/16px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--green); margin-top: 2px; }
 .dq-check-box:disabled { cursor: default; }
 .dq-check-hint { display: block; font-size: 13px; line-height: 18px; color: var(--ink-muted); }

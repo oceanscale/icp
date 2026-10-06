@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Checklist } from '../ds/index.jsx';
+import { Button, Checklist } from '../ds/index.jsx';
 import { api } from '../lib/api.js';
 import { downloadText, esc, printDocument, table } from '../lib/export.js';
 import Generate from '../components/Generate.jsx';
+import Avatar from '../components/Avatar.jsx';
+import TaskModal from '../components/TaskModal.jsx';
+import { dueInfo, firstName } from '../lib/format.js';
 import { Block, Downloads, PastaHead, slug } from './common.jsx';
 
 const SPIN = [
@@ -40,10 +43,38 @@ export function playbookMd(pb, missions, title) {
     .join('\n\n')}\n\n## Rituais\n\n${pb.rituais.map((r) => `- **${r.quando}:** ${r.ritual}`).join('\n')}\n\n## Indicadores semanais\n\n${pb.indicadores.map((r) => `- ${r.indicador}: ${r.meta}`).join('\n')}\n`;
 }
 
-export default function Playbook({ data, line, lineId, pasta, onUpdate }) {
+/** Responsável e prazo do item, ou o botão de delegar para o gestor. */
+function TaskTag({ card, member, isGestor, isMine, onOpen }) {
+  if (!card) return null;
+  const due = dueInfo(card.due, card.status === 'done');
+  if (!card.assignee_id) {
+    if (!isGestor || card.status === 'done') return null;
+    return (
+      <button type="button" className="task-tag task-tag-free" onClick={onOpen}>
+        {card.link_open ? 'Link aberto' : 'Delegar'}
+      </button>
+    );
+  }
+  const Tag = isGestor || isMine ? 'button' : 'span';
+  return (
+    <Tag type={Tag === 'button' ? 'button' : undefined} className={`task-tag ${due ? `task-tag-${due.tone}` : ''}`} onClick={Tag === 'button' ? onOpen : undefined} title={`${member?.name || 'Responsável'}${due ? ` · ${due.text}` : ''}`}>
+      <Avatar userId={card.assignee_id} name={member?.name} avatarAt={member?.avatar_at} size={22} />
+      <span className="task-tag-name">{isMine ? 'Você' : firstName(member?.name)}</span>
+      {due && card.status !== 'done' ? <span className="task-tag-due">{due.tone === 'late' ? 'Atrasada' : due.label}</span> : null}
+    </Tag>
+  );
+}
+
+export default function Playbook({ data, line, lineId, pasta, onUpdate, openBoard }) {
   const pid = data.project.id;
   const pb = data.docs[lineId]?.playbook?.data;
   const [error, setError] = useState('');
+  const [openCard, setOpenCard] = useState(null);
+  const isGestor = data.me.projectRole === 'gestor';
+  const cards = (data.board?.cards || []).filter((c) => c.line_id === lineId);
+  const cardOf = (id) => cards.find((c) => c.mission_id === id);
+  const memberOf = (id) => data.members.find((m) => m.id === id);
+  const delegated = cards.filter((c) => c.assignee_id).length;
   const items = pasta.missions.filter((m) => m.item);
   const names = data.names || {};
   const title = `Playbook · ${line.data?.nome || ''}`;
@@ -92,6 +123,18 @@ export default function Playbook({ data, line, lineId, pasta, onUpdate }) {
             </p>
           </div>
 
+          <div className="delegate-bar">
+            <p className="small">
+              <b>
+                {delegated} de {cards.length}
+              </b>{' '}
+              itens com responsável. {isGestor ? 'Use Delegar em cada item para escolher quem faz, dar prazo ou gerar um link para alguém do time assumir.' : 'O gestor delega os itens; os seus aparecem com o seu nome.'}
+            </p>
+            <Button variant="quiet" size="sm" onClick={openBoard}>
+              Abrir quadro do time
+            </Button>
+          </div>
+
           <div className="grid-2 sections">
             {pb.secoes.map((s, si) => (
               <Checklist
@@ -101,12 +144,21 @@ export default function Playbook({ data, line, lineId, pasta, onUpdate }) {
                 onToggle={toggle}
                 items={s.itens.map((it, ii) => {
                   const m = items.find((x) => x.id === `pb.${si}.${ii}`);
-                  return { id: `pb.${si}.${ii}`, label: it.texto, hint: it.dica, done: m?.done, meta: m?.done ? `${names[m.doneBy] || 'Alguém'} · +5 XP` : undefined };
+                  const card = cardOf(`pb.${si}.${ii}`);
+                  return {
+                    id: `pb.${si}.${ii}`,
+                    label: it.texto,
+                    hint: it.dica,
+                    done: m?.done,
+                    meta: m?.done ? `${names[m.doneBy] || 'Alguém'} · +5 XP` : undefined,
+                    aside: <TaskTag card={card} member={memberOf(card?.assignee_id)} isGestor={isGestor} isMine={card?.assignee_id === data.me.id} onOpen={() => setOpenCard(card)} />,
+                  };
                 })}
               />
             ))}
           </div>
           {error ? <p className="error-text">{error}</p> : null}
+          {openCard && cardOf(openCard.mission_id) ? <TaskModal data={data} card={cardOf(openCard.mission_id)} onClose={() => setOpenCard(null)} onUpdate={onUpdate} /> : null}
 
           <Block title="Perguntas SPIN">
             <div className="spin">

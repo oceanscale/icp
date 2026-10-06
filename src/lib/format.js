@@ -56,3 +56,25 @@ export function clientesReais(n) {
 }
 
 export const firstName = (name) => String(name || '').split(/[\s,]+/).filter(Boolean)[0] || '';
+
+/** Prazo "2026-10-12" comparado com hoje, no fuso do aparelho. */
+export function dueInfo(due, done) {
+  if (!due) return null;
+  const [y, m, d] = due.split('-').map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((new Date(y, m - 1, d) - today) / 86400000);
+  const label = `${String(d).padStart(2, '0')} ${MONTHS[m - 1]}`;
+  if (done) return { label, days, tone: 'done', text: `Prazo ${label}` };
+  if (days < 0) return { label, days, tone: 'late', text: days === -1 ? 'Atrasada 1 dia' : `Atrasada ${-days} dias` };
+  if (days === 0) return { label, days, tone: 'soon', text: 'Vence hoje' };
+  if (days === 1) return { label, days, tone: 'soon', text: 'Vence amanhã' };
+  return { label, days, tone: days <= 3 ? 'soon' : 'ok', text: `Prazo ${label}` };
+}
+
+/** Data de hoje no formato do campo de data. */
+export function todayIso(addDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + addDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

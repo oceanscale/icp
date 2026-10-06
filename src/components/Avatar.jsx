@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 
 /** Foto do perfil, ou a inicial do nome quando não há foto. */
-export default function Avatar({ userId, name = '?', avatarAt, size = 28 }) {
+export default function Avatar({ userId, name = '?', avatarAt, size = 28, srcFor, className = '' }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.46) };
   const [failed, setFailed] = useState(null);
   if (avatarAt && userId && failed !== avatarAt) {
-    return <img className="avatar avatar-img" style={style} src={`/api/avatars/${userId}?v=${avatarAt}`} alt="" aria-hidden="true" onError={() => setFailed(avatarAt)} />;
+    const src = srcFor ? srcFor(userId, avatarAt) : `/api/avatars/${userId}?v=${avatarAt}`;
+    return <img className={`avatar avatar-img ${className}`} style={style} src={src} alt="" aria-hidden="true" onError={() => setFailed(avatarAt)} />;
   }
   return (
-    <span className="avatar" style={style} aria-hidden="true">
+    <span className={`avatar ${className}`} style={style} aria-hidden="true">
       {(name || '?').slice(0, 1).toUpperCase()}
     </span>
   );

@@ -119,6 +119,15 @@ async function route(request, env, url, setCookie) {
     }
   }
 
+  // Quadro do time: só leitura, sem login, aberto pelo link que o gestor compartilha.
+  const board = /^\/api\/quadro\/([A-Za-z0-9_-]{20,60})(?:\/avatars\/([0-9a-f-]{36}))?$/.exec(pathname);
+  if (board && method === 'GET') {
+    if (!board[2]) return db.publicBoard(board[1]);
+    const img = await db.boardAvatar(board[1], board[2]);
+    const bytes = Uint8Array.from(atob(img.data), (c) => c.charCodeAt(0));
+    return new Response(bytes, { headers: { 'content-type': img.mime, 'cache-control': 'public, max-age=3600' } });
+  }
+
   // ----- daqui para baixo, só com sessão -----
   const raw = readSessionToken(request);
   const tokenHash = raw ? await sha256(raw) : null;
@@ -161,6 +170,13 @@ async function route(request, env, url, setCookie) {
     return { ...invite, link: inviteLink(url, invite.token), token: undefined };
   }
 
+  // Link de tarefa delegada: quem abre precisa estar logado e participar do caso.
+  const taskLink = /^\/api\/tarefas\/([A-Za-z0-9_-]{20,60})$/.exec(pathname);
+  if (taskLink) {
+    if (method === 'GET') return db.taskInfo(me, taskLink[1]);
+    if (method === 'POST') return db.acceptTask(me, taskLink[1], str((await readJson(request)).due, 10));
+  }
+
   const imageMatch = /^\/api\/images\/([0-9a-f-]{36})$/.exec(pathname);
   if (imageMatch && method === 'GET') {
     const img = await db.getImage(me, imageMatch[1]);
@@ -201,6 +217,11 @@ async function route(request, env, url, setCookie) {
     return db.cancelInvite(me, pid, (await readJson(request)).email);
   }
 
+  if (rest === '/quadro') {
+    if (method === 'POST') return db.createBoardLink(me, pid, randomToken(24));
+    if (method === 'DELETE') return db.revokeBoardLink(me, pid);
+  }
+
   const answer = /^\/answers\/([0-9a-f-]{36})$/.exec(rest);
   if (answer && method === 'DELETE') return db.deleteAnswer(me, pid, answer[1]);
 
@@ -227,6 +248,20 @@ async function route(request, env, url, setCookie) {
     const kind = doc[1];
     const note = kind === 'icp_input' ? 'atualizou a entrevista de carteira' : 'salvou um cenário no simulador';
     return db.saveDoc(me, pid, lid, kind, sanitizeDoc(kind, await readJson(request)), note);
+  }
+
+  const task = /^\/tasks\/(pb\.\d{1,3}\.\d{1,3})(\/link)?$/.exec(sub);
+  if (task && !task[2] && method === 'PUT') {
+    const body = await readJson(request);
+    const changes = {};
+    if ('assigneeId' in body) changes.assigneeId = body.assigneeId ? str(body.assigneeId, 40) : null;
+    if ('due' in body) changes.due = str(body.due, 10);
+    if ('status' in body) changes.status = str(body.status, 10);
+    return db.updateTask(me, pid, lid, task[1], changes);
+  }
+  if (task && task[2] && method === 'POST') {
+    const r = await db.createTaskLink(me, pid, lid, task[1], randomToken(24));
+    return { ...r, link: `${url.origin}/#/tarefa/${r.token}`, token: undefined };
   }
 
   if (sub === '/dinamica') {

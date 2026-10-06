@@ -67,6 +67,11 @@ export default function Team({ data, onUpdate }) {
           </li>
         ))}
       </ul>
+      {data.members.length <= 1 ? (
+        <p className="small muted" style={{ margin: 'var(--space-2) 0 0' }}>
+          Só você por enquanto. Quem aceitar o convite entra no time, pode receber tarefas no quadro e aparece na capa do dossiê.
+        </p>
+      ) : null}
       {canManage && data.invites.length ? (
         <div className="small muted" style={{ marginTop: 'var(--space-2)' }}>
           Convites pendentes:{' '}

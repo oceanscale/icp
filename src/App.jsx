@@ -5,16 +5,21 @@ import Invite from './pages/Invite.jsx';
 import Dinamica from './pages/Dinamica.jsx';
 import Cases from './pages/Cases.jsx';
 import CasePage from './pages/Case.jsx';
+import Quadro from './pages/Quadro.jsx';
+import Tarefa from './pages/Tarefa.jsx';
 import TopBar from './components/TopBar.jsx';
+import SeaAds from './components/SeaAds.jsx';
 import { navigate } from './lib/nav.js';
 
-// Rotas por hash: #/ · #/convite/<token> · #/primeiro-acesso · #/caso/<id>[/<linha>/<pasta>]
+// Rotas por hash: #/ · #/convite/<token> · #/primeiro-acesso · #/caso/<id>[/<linha>/<pasta>] · #/tarefa/<token> · #/quadro/<token>
 function parseRoute() {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (parts[0] === 'convite' && parts[1]) return { name: 'invite', token: parts[1] };
   if (parts[0] === 'primeiro-acesso') return { name: 'setup' };
   if (parts[0] === 'recuperar') return { name: 'recover' };
   if (parts[0] === 'dinamica' && parts[1]) return { name: 'dinamica', token: parts[1] };
+  if (parts[0] === 'tarefa' && parts[1]) return { name: 'tarefa', token: parts[1] };
+  if (parts[0] === 'quadro' && parts[1]) return { name: 'quadro', token: parts[1] };
   if (parts[0] === 'caso' && parts[1]) return { name: 'case', pid: parts[1], lid: parts[2] || null, pasta: parts[3] || null };
   return { name: 'home' };
 }
@@ -55,8 +60,9 @@ export default function App() {
 
   const toggleTheme = () => setTheme((t) => (t === 'papel' ? 'noturno' : 'papel'));
 
-  // A dinâmica é pública: abre com ou sem login.
+  // A dinâmica e o quadro compartilhado são públicos: abrem com ou sem login.
   if (route.name === 'dinamica') return <Dinamica token={route.token} />;
+  if (route.name === 'quadro') return <Quadro token={route.token} theme={theme} onToggleTheme={toggleTheme} />;
 
   if (user === undefined) return <div className="app-loading" aria-busy="true" />;
 
@@ -68,8 +74,17 @@ export default function App() {
     <div className="app">
       <TopBar user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={logout} onUserChange={setUser} />
       <main className="app-main">
-        {route.name === 'case' ? <CasePage key={route.pid} route={route} user={user} /> : <Cases user={user} />}
+        {route.name === 'case' ? (
+          <CasePage key={route.pid} route={route} user={user} />
+        ) : route.name === 'tarefa' ? (
+          <Tarefa token={route.token} user={user} />
+        ) : (
+          <Cases user={user} />
+        )}
       </main>
+      <footer className="app-foot">
+        <SeaAds />
+      </footer>
     </div>
   );
 }

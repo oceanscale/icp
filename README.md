@@ -1,12 +1,12 @@
 # Dossiê ICP
 
-Sistema da operação comercial da Oceanscale para estruturar o comercial das empresas atendidas no treinamento. Cada empresa é um **caso**; cada linha de produto da empresa percorre 9 pastas, e cada pasta entregue abre a próxima:
+Sistema da Sea-Ads Marketing (operação comercial da Oceanscale) para estruturar o comercial das empresas atendidas no treinamento. Cada empresa é um **caso**; cada linha de produto da empresa percorre 9 pastas, e cada pasta entregue abre a próxima:
 
 | Pasta | O que entrega |
 | --- | --- |
 | 01 Empresa | Pitch, diferenciais, time, ferramentas e as linhas de produto (vale para o caso todo) |
 | 02 ICP | Entrevista de carteira com 3 a 5 clientes reais, dinâmica com o time por link público, ICP principal e secundário, persona decisora e retrato gerado por IA |
-| 03 Playbook | Checklist de implantação (cada item vale XP), critério de lead qualificado, perguntas SPIN, objeções A.R.A., rituais e indicadores |
+| 03 Playbook | Checklist de implantação (cada item vale XP e pode ser delegado com prazo), critério de lead qualificado, perguntas SPIN, objeções A.R.A., rituais e indicadores |
 | 04 Roteiros | Cold call de 4 minutos, e-mail, WhatsApp, LinkedIn e respostas rápidas a objeções |
 | 05 Jornada | Mapa mental da jornada de compra: gatilhos, onde está a atenção, em quem confia, o que pergunta, o que pensa e o que leva à conversa |
 | 06 Funil | Etapas para o Kanban do CRM: critério de entrada e saída, dono, prazo, conversão de referência; exporta CSV |
@@ -17,15 +17,18 @@ Sistema da operação comercial da Oceanscale para estruturar o comercial das em
 
 **Jogo:** cada pasta tem missões (automáticas, que o sistema marca quando a entrega existe, e manuais, que o time marca). Missões dão XP, pasta resolvida dá +50 XP, o caso sobe de nível (Improviso, Estruturando, Processo definido, Previsível, Escalável) e o mural mostra o ranking do time. A pasta seguinte só abre quando a peça-chave da anterior existe, e o servidor também confere isso. Uma pasta que já tem entrega nunca volta a trancar.
 
+**Quadro do time:** cada item do checklist do playbook vira um cartão num mural de investigação com quatro colunas (Pistas na mesa, Em investigação, Para conferir, Caso arquivado). O gestor delega o item a alguém do caso, define ou ajusta o prazo, ou gera um link de tarefa (uso único) para a pessoa assumir e escolher o prazo. O cartão mostra a foto do responsável e o prazo, com aviso de atrasada. Quem tem a tarefa arrasta o próprio cartão; arquivar marca o item no playbook e dá o XP ao responsável. O gestor pode gerar um link só de visualização do quadro (sem login, só primeiro nome e foto, atualiza a cada minuto) e trocar ou desligar o link a qualquer hora.
+
 **Salvamento:** os formulários (Empresa, entrevista de carteira, simulador) salvam sozinhos 1,5 segundo depois da última alteração, com um selo de "Salvo às ..." e aviso ao fechar a aba se algo ficou pendente. A dinâmica pública guarda o rascunho no aparelho até o envio.
 
-**Downloads:** PDF de cada pasta em layout neutro, CSV do funil e o **dossiê completo** (pasta 09): várias páginas com capa, nível, tabuleiro, retrato do decisor, todas as pastas e o mural do time.
+**Downloads:** PDF de cada pasta em layout neutro, CSV do funil e o **dossiê completo** (pasta 09): várias páginas com capa, nível, tabuleiro, retrato do decisor, todas as pastas (o playbook mostra responsável e prazo de cada item), o simulador com premissas e resultado, e o mural do time. Na capa, "Time do caso" lista quem participa do caso (quem aceitou o convite) e "Gerado por" é quem baixou o arquivo.
 
 ## Acesso
 
 - **Consultor** (papel `admin`): abre casos, vê todos e convida pessoas e outros consultores.
-- **Gestor** do caso: convida e remove pessoas do caso, muda papéis e gera link de nova senha.
-- **Membro** do caso: preenche pastas, gera com IA e cumpre missões.
+- **Gestor** do caso: convida e remove pessoas do caso, muda papéis, gera link de nova senha, delega as tarefas do playbook e compartilha o quadro do time.
+- **Membro** do caso: preenche pastas, gera com IA, cumpre missões e move os cartões que estão com ele.
+- **Time do caso:** a pessoa só aparece no time (e na capa do dossiê) depois de abrir o convite e criar o acesso. Convite pendente aparece em Time do caso > Convites pendentes.
 - **Dinâmica do ICP:** link público (7 dias) para os vendedores contarem do melhor cliente sem login; as respostas entram no caso e no contexto da IA.
 - **Foto do perfil:** em Sua conta (clique no seu nome no topo).
 
@@ -80,7 +83,9 @@ Confira a configuração em `/api/health` (`anthropic` e `portrait` dizem se a I
 - **Retrato do decisor:** usa o modelo FLUX.1 schnell do Workers AI, que tem cota diária gratuita. Quantas imagens cabem na cota depende da tabela de preços atual do Workers AI. Cada linha guarda os 3 retratos mais recentes.
 - **Bibliotecas de anúncios:** o servidor não lê os links da Meta, LinkedIn ou TikTok (não há API aberta para anúncios comerciais no Brasil). O link fica registrado; o que a IA analisa são os prints enviados.
 - **Custo do WhatsApp:** o simulador não traz preços prontos. Um consultor preenche uma vez a tabela de preços por categoria (pasta 09, "Preencher tabela de preços") com os valores da fatura do provedor da API oficial; ela vale para todos os casos.
-- **Onde ficam os dados:** num Durable Object com SQLite da Cloudflare (`DOSSIE`, objeto único `main`): usuários, sessões, casos, pastas, respostas da dinâmica, retratos e fotos de perfil.
+- **Onde ficam os dados:** num Durable Object com SQLite da Cloudflare (`DOSSIE`, objeto único `main`): usuários, sessões, casos, pastas, respostas da dinâmica, tarefas do quadro, retratos e fotos de perfil.
+- **Gerar o playbook de novo** troca os itens do checklist e apaga as tarefas, responsáveis e prazos daquela linha.
+- **Marca:** os logos da Sea-Ads ficam em `public/brand/` (colorido para o tema papel, branco para o noturno).
 
 ## Rodando
 

@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { PASTAS, computeGame } from '../shared/game.js';
+import { ALL_PASTAS, PASTAS, computeGame, playbookItems } from '../shared/game.js';
 import { SESSION_DAYS, hashPassword, normalizeEmail, randomToken, sha256, validEmail, validatePassword, verifyPassword } from './auth.js';
 
 /*
@@ -58,7 +58,16 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS dynamic_answers (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, line_id TEXT NOT NULL, token TEXT, nome TEXT,
     data TEXT, ip TEXT, created_at INTEGER)`,
   `CREATE INDEX IF NOT EXISTS answers_line ON dynamic_answers (project_id, line_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, line_id TEXT NOT NULL, mission_id TEXT NOT NULL,
+    assignee_id TEXT, due TEXT, status TEXT NOT NULL DEFAULT 'todo', accept_token TEXT, created_by TEXT, created_at INTEGER, updated_at INTEGER,
+    UNIQUE (project_id, line_id, mission_id))`,
+  `CREATE INDEX IF NOT EXISTS tasks_token ON tasks (accept_token)`,
+  `CREATE TABLE IF NOT EXISTS boards (token TEXT PRIMARY KEY, project_id TEXT NOT NULL, created_by TEXT, created_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0)`,
 ];
+
+const TASK_STATUS = ['todo', 'doing', 'review', 'done'];
+// Prazo no formato do campo de data (AAAA-MM-DD) e que exista no calendário.
+const validDue = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)) && new Date(`${d}T00:00:00Z`).toISOString().startsWith(d);
 
 // Colunas acrescentadas depois da primeira versão (o ALTER falha se já existir; tudo bem).
 const MIGRATIONS = ['ALTER TABLE users ADD COLUMN avatar_at INTEGER'];
@@ -499,6 +508,10 @@ export class DossieStore extends DurableObject {
       activity,
       invites,
       prices: this.getPrices(),
+      board: {
+        cards: this.boardCards(projectId, state),
+        shareToken: role === 'gestor' ? this.one('SELECT token FROM boards WHERE project_id = ? AND revoked = 0 ORDER BY created_at DESC LIMIT 1', projectId)?.token || null : null,
+      },
       dynamics: Object.fromEntries(
         this.q('SELECT token, line_id, expires_at FROM dynamics WHERE project_id = ? AND closed = 0 AND expires_at > ?', projectId, now()).map((d) => [
           d.line_id,
@@ -556,7 +569,7 @@ export class DossieStore extends DurableObject {
     const actor = this.user(actorId);
     this.manage(actor, projectId);
     const l = this.line(projectId, lineId);
-    for (const table of ['docs', 'missions', 'ads', 'images', 'dynamics', 'dynamic_answers']) {
+    for (const table of ['docs', 'missions', 'ads', 'images', 'dynamics', 'dynamic_answers', 'tasks']) {
       this.sql.exec(`DELETE FROM ${table} WHERE project_id = ? AND line_id = ?`, projectId, lineId);
     }
     this.sql.exec('DELETE FROM lines WHERE id = ?', lineId);
@@ -612,14 +625,16 @@ export class DossieStore extends DurableObject {
       now(),
     );
     // Um playbook novo traz itens novos: as marcações do anterior deixam de valer.
-    if (kind === 'playbook') this.sql.exec("DELETE FROM missions WHERE project_id = ? AND line_id = ? AND mission_id LIKE 'pb.%'", projectId, lineId);
+    if (kind === 'playbook') {
+      this.sql.exec("DELETE FROM missions WHERE project_id = ? AND line_id = ? AND mission_id LIKE 'pb.%'", projectId, lineId);
+      this.sql.exec('DELETE FROM tasks WHERE project_id = ? AND line_id = ?', projectId, lineId);
+    }
     if (note) this.log(projectId, actor.id, note);
     return this.getProject(actorId, projectId);
   }
 
-  toggleMission(actorId, projectId, lineId, missionId, done) {
-    const actor = this.user(actorId);
-    this.access(actor, projectId);
+  /** Marca ou desmarca uma missão manual; credita o XP a `creditTo` (padrão: quem marcou). */
+  setMission(actor, projectId, lineId, missionId, done, creditTo) {
     const state = this.loadState(projectId);
     const game = computeGame(state);
     let pasta;
@@ -633,26 +648,217 @@ export class DossieStore extends DurableObject {
     if (!mission) fail(404, 'Missão não encontrada');
     if (mission.auto) fail(400, 'Esta missão é marcada pelo sistema quando a entrega existe');
     if (pasta.state === 'locked') fail(400, 'Esta pasta ainda está trancada');
-    if (done) {
-      this.sql.exec(
-        'INSERT OR IGNORE INTO missions (project_id, line_id, mission_id, done_by, done_at) VALUES (?, ?, ?, ?, ?)',
-        projectId,
-        lineId || '',
-        missionId,
-        actor.id,
-        now(),
-      );
-      this.log(projectId, actor.id, `concluiu “${mission.label}”`, mission.points);
+    const who = creditTo || actor.id;
+    if (done && !mission.done) {
+      this.sql.exec('INSERT OR IGNORE INTO missions (project_id, line_id, mission_id, done_by, done_at) VALUES (?, ?, ?, ?, ?)', projectId, lineId || '', missionId, who, now());
+      this.log(projectId, who, `concluiu “${mission.label}”`, mission.points);
       const after = computeGame(this.loadState(projectId));
       const pAfter = lineId ? after.lines[lineId].pastas.find((p) => p.id === pasta.id) : after.empresa;
       if (pAfter.state === 'done' && pasta.state !== 'done') {
-        const label = PASTAS.find((p) => p.id === pasta.id)?.label;
+        const label = ALL_PASTAS.find((p) => p.id === pasta.id)?.label;
         this.log(projectId, actor.id, `resolveu a pasta ${label}`, 50);
       }
-    } else {
+    } else if (!done) {
       this.sql.exec('DELETE FROM missions WHERE project_id = ? AND line_id = ? AND mission_id = ?', projectId, lineId || '', missionId);
     }
+    return mission;
+  }
+
+  toggleMission(actorId, projectId, lineId, missionId, done) {
+    const actor = this.user(actorId);
+    this.access(actor, projectId);
+    const task = lineId ? this.one('SELECT * FROM tasks WHERE project_id = ? AND line_id = ? AND mission_id = ?', projectId, lineId, missionId) : null;
+    this.setMission(actor, projectId, lineId, missionId, done, done && task?.assignee_id ? task.assignee_id : null);
+    // O quadro acompanha o checklist.
+    if (task) this.sql.exec('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?', done ? 'done' : task.assignee_id ? 'doing' : 'todo', now(), task.id);
     return this.getProject(actorId, projectId);
+  }
+
+  // ---------- quadro de tarefas do playbook ----------
+
+  /** Um cartão por item do checklist do playbook de cada linha, com responsável, prazo e status. */
+  boardCards(projectId, state) {
+    state ||= this.loadState(projectId);
+    const done = new Map(state.missions.map((m) => [`${m.line_id}|${m.mission_id}`, m]));
+    const tasks = new Map(this.q('SELECT * FROM tasks WHERE project_id = ?', projectId).map((t) => [`${t.line_id}|${t.mission_id}`, t]));
+    const cards = [];
+    for (const line of state.lines) {
+      const pb = state.docs[line.id]?.playbook;
+      for (const item of playbookItems(pb)) {
+        const key = `${line.id}|${item.id}`;
+        const t = tasks.get(key);
+        const m = done.get(key);
+        cards.push({
+          line_id: line.id,
+          line_name: line.data?.nome || 'Linha',
+          mission_id: item.id,
+          title: item.label,
+          hint: item.hint,
+          section: item.section,
+          status: m ? 'done' : t && t.status !== 'done' ? t.status : 'todo',
+          assignee_id: t?.assignee_id || null,
+          due: t?.due || '',
+          done_by: m?.done_by || null,
+          done_at: m?.done_at || null,
+          link_open: Boolean(t?.accept_token),
+          updated_at: t?.updated_at || null,
+        });
+      }
+    }
+    return cards;
+  }
+
+  taskRow(projectId, lineId, missionId) {
+    const pb = this.one("SELECT data FROM docs WHERE project_id = ? AND line_id = ? AND kind = 'playbook'", projectId, lineId);
+    const item = playbookItems({ data: parse(pb?.data, {}) }).find((i) => i.id === missionId);
+    if (!item) fail(404, 'Item do playbook não encontrado. O playbook pode ter sido gerado de novo.');
+    let t = this.one('SELECT * FROM tasks WHERE project_id = ? AND line_id = ? AND mission_id = ?', projectId, lineId, missionId);
+    if (!t) {
+      this.sql.exec(
+        "INSERT INTO tasks (id, project_id, line_id, mission_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'todo', ?, ?)",
+        crypto.randomUUID(),
+        projectId,
+        lineId,
+        missionId,
+        now(),
+        now(),
+      );
+      t = this.one('SELECT * FROM tasks WHERE project_id = ? AND line_id = ? AND mission_id = ?', projectId, lineId, missionId);
+    }
+    return { t, item };
+  }
+
+  updateTask(actorId, projectId, lineId, missionId, changes) {
+    const actor = this.user(actorId);
+    const { role } = this.access(actor, projectId);
+    this.line(projectId, lineId);
+    const { t, item } = this.taskRow(projectId, lineId, missionId);
+    const isGestor = role === 'gestor';
+    const isOwner = t.assignee_id === actor.id;
+    if (!isGestor && !isOwner) fail(403, 'Só o gestor do caso ou o responsável pela tarefa podem mexer neste cartão');
+    let assignee = t.assignee_id;
+    if ('assigneeId' in changes) {
+      if (!isGestor) fail(403, 'Só o gestor delega tarefas');
+      assignee = changes.assigneeId || null;
+      if (assignee && !this.one('SELECT 1 AS ok FROM members WHERE project_id = ? AND user_id = ?', projectId, assignee)) fail(400, 'Essa pessoa não participa do caso');
+      if (assignee !== t.assignee_id && assignee) {
+        const name = this.one('SELECT name FROM users WHERE id = ?', assignee)?.name;
+        this.log(projectId, actor.id, `delegou “${item.label}” para ${name}`);
+      }
+    }
+    let due = t.due || '';
+    if ('due' in changes) {
+      due = String(changes.due || '');
+      if (due && !validDue(due)) fail(400, 'Prazo inválido');
+    }
+    let status = t.status;
+    if ('status' in changes) {
+      if (!TASK_STATUS.includes(changes.status)) fail(400, 'Status inválido');
+      status = changes.status;
+    }
+    if (!assignee && (status === 'doing' || status === 'review')) {
+      if ('status' in changes && changes.status !== t.status) fail(400, 'Escolha um responsável antes de tirar o cartão da mesa');
+      status = 'todo';
+    }
+    this.sql.exec('UPDATE tasks SET assignee_id = ?, due = ?, status = ?, updated_at = ? WHERE id = ?', assignee, due, status, now(), t.id);
+    const wasDone = Boolean(this.one('SELECT 1 AS ok FROM missions WHERE project_id = ? AND line_id = ? AND mission_id = ?', projectId, lineId, missionId));
+    if (status === 'done' && !wasDone) this.setMission(actor, projectId, lineId, missionId, true, assignee || actor.id);
+    if (status !== 'done' && wasDone) this.setMission(actor, projectId, lineId, missionId, false);
+    return this.getProject(actorId, projectId);
+  }
+
+  createTaskLink(actorId, projectId, lineId, missionId, token) {
+    const actor = this.user(actorId);
+    this.manage(actor, projectId);
+    this.line(projectId, lineId);
+    const { t, item } = this.taskRow(projectId, lineId, missionId);
+    this.sql.exec('UPDATE tasks SET accept_token = ?, updated_at = ? WHERE id = ?', token, now(), t.id);
+    this.log(projectId, actor.id, `abriu “${item.label}” para alguém do time assumir`);
+    return { token, title: item.label };
+  }
+
+  taskByToken(actorId, token) {
+    const actor = this.user(actorId);
+    const t = this.one('SELECT * FROM tasks WHERE accept_token = ?', token);
+    if (!t) fail(410, 'Este link de tarefa já foi usado ou foi cancelado. Peça um novo ao gestor do caso.');
+    const project = this.one('SELECT id, name, archived FROM projects WHERE id = ?', t.project_id);
+    if (!project || project.archived) fail(410, 'Caso encerrado');
+    const member = actor.role === 'admin' || Boolean(this.one('SELECT 1 AS ok FROM members WHERE project_id = ? AND user_id = ?', t.project_id, actor.id));
+    const pb = this.one("SELECT data FROM docs WHERE project_id = ? AND line_id = ? AND kind = 'playbook'", t.project_id, t.line_id);
+    const item = playbookItems({ data: parse(pb?.data, {}) }).find((i) => i.id === t.mission_id);
+    if (!item) fail(410, 'O playbook mudou e esta tarefa não existe mais');
+    const line = this.one('SELECT data FROM lines WHERE id = ?', t.line_id);
+    const assignee = t.assignee_id ? this.one('SELECT name FROM users WHERE id = ?', t.assignee_id)?.name : null;
+    return { t, actor, member, item, project, lineName: parse(line?.data, {}).nome || '', assignee };
+  }
+
+  taskInfo(actorId, token) {
+    const { t, member, item, project, lineName, assignee } = this.taskByToken(actorId, token);
+    return { projectId: project.id, projectName: project.name, lineId: t.line_id, lineName, title: item.label, hint: item.hint, section: item.section, due: t.due || '', assignee, member };
+  }
+
+  acceptTask(actorId, token, due) {
+    const { t, actor, member, item } = this.taskByToken(actorId, token);
+    if (!member) fail(403, 'Você ainda não participa deste caso. Peça um convite ao gestor.');
+    const nextDue = due ? String(due) : t.due || '';
+    if (nextDue && !validDue(nextDue)) fail(400, 'Prazo inválido');
+    this.sql.exec(
+      "UPDATE tasks SET assignee_id = ?, due = ?, status = CASE WHEN status = 'todo' THEN 'doing' ELSE status END, accept_token = NULL, updated_at = ? WHERE id = ?",
+      actor.id,
+      nextDue,
+      now(),
+      t.id,
+    );
+    this.log(t.project_id, actor.id, `assumiu a tarefa “${item.label}”`);
+    return { projectId: t.project_id, lineId: t.line_id };
+  }
+
+  createBoardLink(actorId, projectId, token) {
+    const actor = this.user(actorId);
+    this.manage(actor, projectId);
+    this.sql.exec('UPDATE boards SET revoked = 1 WHERE project_id = ?', projectId);
+    this.sql.exec('INSERT INTO boards (token, project_id, created_by, created_at) VALUES (?, ?, ?, ?)', token, projectId, actor.id, now());
+    return this.getProject(actorId, projectId);
+  }
+
+  revokeBoardLink(actorId, projectId) {
+    const actor = this.user(actorId);
+    this.manage(actor, projectId);
+    this.sql.exec('UPDATE boards SET revoked = 1 WHERE project_id = ?', projectId);
+    return this.getProject(actorId, projectId);
+  }
+
+  boardByToken(token) {
+    const b = this.one('SELECT * FROM boards WHERE token = ? AND revoked = 0', token);
+    const project = b && this.one('SELECT * FROM projects WHERE id = ? AND archived = 0', b.project_id);
+    if (!project) fail(410, 'Este quadro não está mais compartilhado.');
+    return project;
+  }
+
+  /** Quadro só leitura, para o time acompanhar sem login. Sem e-mails, só nomes e fotos. */
+  publicBoard(token) {
+    const project = this.boardByToken(token);
+    const state = this.loadState(project.id);
+    const game = computeGame(state);
+    const cards = this.boardCards(project.id, state);
+    const ids = [...new Set(cards.flatMap((c) => [c.assignee_id, c.done_by]).filter(Boolean))].slice(0, 90);
+    const people = ids.length ? this.q(`SELECT id, name, avatar_at FROM users WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids) : [];
+    return {
+      project: { name: project.name, number: project.number, segment: project.segment, city: project.city },
+      level: game.level,
+      xp: game.xp,
+      cards,
+      people: Object.fromEntries(people.map((u) => [u.id, { name: String(u.name || '').split(/\s+/)[0], avatar_at: u.avatar_at }])),
+    };
+  }
+
+  boardAvatar(token, userId) {
+    const project = this.boardByToken(token);
+    const onBoard = this.one('SELECT 1 AS ok FROM tasks WHERE project_id = ? AND assignee_id = ? UNION SELECT 1 FROM missions WHERE project_id = ? AND done_by = ?', project.id, userId, project.id, userId);
+    if (!onBoard) fail(404, 'Sem foto');
+    const row = this.one('SELECT mime, data FROM avatars WHERE user_id = ?', userId);
+    if (!row) fail(404, 'Sem foto');
+    return row;
   }
 
   // ---------- ads e imagens ----------
@@ -847,6 +1053,8 @@ export class DossieStore extends DurableObject {
     const target = this.one('SELECT u.name FROM members m JOIN users u ON u.id = m.user_id WHERE m.project_id = ? AND m.user_id = ?', projectId, userId);
     if (!target) fail(404, 'Pessoa não encontrada no caso');
     this.sql.exec('DELETE FROM members WHERE project_id = ? AND user_id = ?', projectId, userId);
+    // As tarefas abertas dessa pessoa voltam para a mesa.
+    this.sql.exec("UPDATE tasks SET assignee_id = NULL, status = CASE WHEN status = 'done' THEN 'done' ELSE 'todo' END, updated_at = ? WHERE project_id = ? AND assignee_id = ?", now(), projectId, userId);
     this.log(projectId, actor.id, `removeu ${target.name} do caso`);
     return this.getProject(actorId, projectId);
   }

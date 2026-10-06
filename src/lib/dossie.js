@@ -1,7 +1,7 @@
 // Dossiê completo em PDF: várias páginas, com a moldura do jogo (capa com nível e tabuleiro, carimbos,
 // retrato do decisor). Sai pela impressão do navegador ("Salvar como PDF").
 import { ALL_PASTAS } from '../../shared/game.js';
-import { brl, dateLabel, num, pad3 } from './format.js';
+import { brl, dateLabel, dueInfo, num, pad3 } from './format.js';
 import { esc } from './export.js';
 
 const FONTS =
@@ -59,6 +59,28 @@ ul { margin: 0 0 2mm; padding-left: 5mm; }
 .rank li { margin-bottom: 1mm; }
 .var { font-weight: 700; color: #1f4f8f; }
 .foot { margin-top: 4mm; font-size: 8pt; color: #57616c; }
+.task { font: 700 7pt "Courier Prime", monospace; color: #1f4f8f; text-transform: uppercase; letter-spacing: .06em; text-decoration: none; display: inline-block; margin-left: 2mm; }
+.task.late { color: #a03a28; }
+.mural-cols { display: flex; gap: 8mm; } .mural-cols > div:first-child { flex: 0 0 55mm; } .mural-cols > div:last-child { flex: 1; font-size: 9pt; }
+.flow { break-before: auto; margin-top: 6mm; padding-top: 4mm; border-top: 1.5px dashed #857a68; }
+.flow h2 { font-size: 18pt; margin: 1mm 0 2mm; } .flow .head { margin-bottom: 3mm; padding-bottom: 2mm; } .flow .card { padding: 2.5mm 4mm; margin-bottom: 2mm; } .flow h3 { margin-top: 3mm; }
+.end { display: flex; align-items: center; gap: 6mm; margin-top: 3mm; } .end .note { flex: 1; margin: 0; }
+.sim { break-inside: avoid; }
+.sim-cols { display: flex; gap: 6mm; align-items: flex-start; }
+.sim-cols > div { flex: 1; min-width: 0; }
+.sim table { margin-top: 1mm; }
+.sim td:last-child { text-align: right; white-space: nowrap; font-family: "Courier Prime", monospace; }
+.stat { display: flex; justify-content: space-between; align-items: baseline; gap: 3mm; padding: 1.2mm 0; border-bottom: 1px dashed #d8cdb5; }
+.stat b { font: 700 12pt/1.1 "Courier Prime", monospace; white-space: nowrap; }
+.stat.main b { font-size: 17pt; color: #1f4f8f; }
+.bars { margin: 3mm 0 2mm; }
+.bar { display: flex; align-items: center; gap: 3mm; margin-bottom: 1mm; }
+.bar span { width: 26mm; font: 700 7.5pt/1.2 "Courier Prime", monospace; letter-spacing: .06em; text-transform: uppercase; color: #57616c; }
+.bar i { display: block; height: 4.2mm; min-width: 1.5mm; background: #1f4f8f; border-radius: 1px; }
+.bar:nth-child(2) i { background: #4d77b0; } .bar:nth-child(3) i { background: #2c6a4b; } .bar:nth-child(4) i { background: #1e2a38; }
+.bar em { font: 700 9pt "Courier Prime", monospace; font-style: normal; }
+.brand { display: flex; align-items: center; justify-content: flex-end; gap: 2mm; font: 700 7pt/1 "Courier Prime", monospace; letter-spacing: .1em; text-transform: uppercase; color: #57616c; }
+.brand img { height: 6mm; width: auto; }
 `;
 
 const stateStamp = (state) =>
@@ -91,11 +113,85 @@ async function imageData(id) {
 
 function simulate(sim, prices) {
   if (!sim) return null;
-  const price = prices || { marketing: sim.custoMarketing, utilidade: sim.custoUtilidade, autenticacao: sim.custoAutenticacao };
-  const porLead = (sim.msgMarketing * price.marketing + sim.msgUtilidade * price.utilidade + sim.msgAutenticacao * price.autenticacao) * (1 + (sim.margem || 0) / 100);
+  const price = prices || { marketing: sim.custoMarketing || 0, utilidade: sim.custoUtilidade || 0, autenticacao: sim.custoAutenticacao || 0 };
+  const margem = sim.margem || 0;
+  const porLead = (sim.msgMarketing * price.marketing + sim.msgUtilidade * price.utilidade + sim.msgAutenticacao * price.autenticacao) * (1 + margem / 100);
   const total = sim.leads * porLead;
-  const reunioes = sim.leads * (sim.taxaResposta / 100) * (sim.taxaReuniao / 100);
-  return { porLead, total, reunioes, leads: sim.leads, porReuniao: reunioes > 0 ? total / reunioes : 0 };
+  const respostas = sim.leads * ((sim.taxaResposta || 0) / 100);
+  const reunioes = respostas * ((sim.taxaReuniao || 0) / 100);
+  const clientes = reunioes * ((sim.taxaFechamento || 0) / 100);
+  const receita = clientes * (sim.ticket || 0);
+  let back = null;
+  if (sim.metaReceita > 0 && sim.ticket > 0 && sim.taxaFechamento > 0 && sim.taxaReuniao > 0 && sim.taxaResposta > 0) {
+    const cli = Math.ceil(sim.metaReceita / sim.ticket);
+    const reu = cli / (sim.taxaFechamento / 100);
+    const resp = reu / (sim.taxaReuniao / 100);
+    const leads = resp / (sim.taxaResposta / 100);
+    back = { cli, reu, resp, leads, custo: leads * porLead };
+  }
+  return { sim, price, margem, porLead, total, respostas, reunioes, clientes, receita, back, leads: sim.leads, porReuniao: reunioes > 0 ? total / reunioes : 0, porCliente: clientes > 0 ? total / clientes : 0 };
+}
+
+async function toDataUrl(url) {
+  try {
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function simulatorHtml(r, prices) {
+  const s = r.sim;
+  const pct = (v) => `${num(v || 0, 1)}%`;
+  const rows = [
+    ['Leads por mês', num(r.leads)],
+    ['Mensagens de marketing por lead', `${num(s.msgMarketing)} × ${brl(r.price.marketing, 4)}`],
+    ['Mensagens de utilidade por lead', `${num(s.msgUtilidade)} × ${brl(r.price.utilidade, 4)}`],
+    ['Mensagens de autenticação por lead', `${num(s.msgAutenticacao)} × ${brl(r.price.autenticacao, 4)}`],
+    ...(r.margem ? [['Taxa do provedor', pct(r.margem)]] : []),
+    ['Leads que respondem', pct(s.taxaResposta)],
+    ['Respostas que viram reunião', pct(s.taxaReuniao)],
+    ['Reuniões que fecham', pct(s.taxaFechamento)],
+    ...(s.ticket ? [['Ticket médio', brl(s.ticket)]] : []),
+  ];
+  const stats = [
+    ['Custo por lead', brl(r.porLead), true],
+    ['Custo no mês', brl(r.total), true],
+    ['Respostas', num(r.respostas, 1)],
+    ['Reuniões', num(r.reunioes, 1)],
+    ['Clientes', num(r.clientes, 1)],
+    ['Custo por reunião', r.reunioes > 0 ? brl(r.porReuniao) : 'sem dado'],
+    ['Custo por cliente', r.clientes > 0 ? brl(r.porCliente) : 'sem dado'],
+    ...(r.receita ? [['Receita estimada', brl(r.receita, 0)]] : []),
+  ];
+  const max = Math.max(r.leads, 1);
+  const bars = [
+    ['Leads', r.leads],
+    ['Respostas', r.respostas],
+    ['Reuniões', r.reunioes],
+    ['Clientes', r.clientes],
+  ];
+  return `<div class="sim">
+    <div class="sim-cols">
+      <div><div class="label">Premissas do cenário</div>${tableHtml(['Item', 'Valor'], rows)}</div>
+      <div><div class="label">Resultado do mês</div>${stats.map(([k, v, main]) => `<div class="stat ${main ? 'main' : ''}"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    </div>
+    <div class="bars">${bars.map(([k, v]) => `<div class="bar"><span>${esc(k)}</span><i style="width:${Math.max(0.5, (v / max) * 120).toFixed(1)}mm"></i><em>${esc(num(v, v < 10 ? 1 : 0))}</em></div>`).join('')}</div>
+    ${
+      r.back
+        ? `<div class="card"><div class="label">Conta de trás para frente</div><p>Para faturar <b>${esc(brl(r.sim.metaReceita, 0))}</b> no mês: ${esc(num(r.back.cli))} clientes, ${esc(num(r.back.reu, 0))} reuniões, ${esc(num(r.back.resp, 0))} respostas e <b>${esc(num(r.back.leads, 0))} leads</b>, com custo de mensagens de <b>${esc(brl(r.back.custo))}</b>.</p></div>`
+        : ''
+    }
+    <p class="muted">Preços por mensagem ${prices ? `da tabela definida em ${dateLabel(prices.updated_at)}` : 'informados no simulador'}. Valores de referência para planejamento; a fatura do provedor da API oficial é quem manda.</p>
+  </div>`;
 }
 
 function templateHtml(t, ctx) {
@@ -116,6 +212,9 @@ export async function exportDossie(data, line, user) {
   const { project, game } = data;
   const names = data.names || {};
   const image = data.images[lineId] ? await imageData(data.images[lineId].id) : null;
+  const logo = await toDataUrl('/brand/sea-ads.png');
+  const brand = logo ? `<div class="brand">Um sistema <img src="${logo}" alt="Sea-Ads Marketing"></div>` : '<div class="brand">Um sistema Sea-Ads Marketing</div>';
+  const cards = new Map((data.board?.cards || []).filter((c) => c.line_id === lineId).map((c) => [c.mission_id, c]));
   const mainDone = pastas.filter((p) => !p.bonus).every((p) => p.state === 'done');
   const pct = game.level.next ? Math.min(100, Math.round((game.xp / game.level.next) * 100)) : 100;
   const pages = [];
@@ -139,7 +238,8 @@ export async function exportDossie(data, line, user) {
     <div class="label">${game.xp} XP${game.level.next ? ` · próximo nível em ${game.level.next} XP` : ' · nível máximo'}</div>
     <p style="margin-top: 8mm"><span class="label">Time do caso</span><br>${data.members.map((m) => esc(m.name)).join(' · ')}</p>
     <p class="muted">Gerado por ${esc(user?.name || '')} em ${dateLabel(Date.now())}.</p>
-    <div class="folders"><div style="height: 40mm; background:#1e2a38"></div><div style="height: 30mm; background:#2c6a4b"></div><div style="height: 20mm; background:#857a68"></div><div style="height: 10mm; background:#1f4f8f"></div></div>
+    <div style="margin-top: auto; padding-bottom: 4mm">${brand}</div>
+    <div class="folders" style="margin-top: 0"><div style="height: 40mm; background:#1e2a38"></div><div style="height: 30mm; background:#2c6a4b"></div><div style="height: 20mm; background:#857a68"></div><div style="height: 10mm; background:#1f4f8f"></div></div>
   </section>`);
 
   // 02 ICP
@@ -187,7 +287,10 @@ export async function exportDossie(data, line, user) {
           (s, si) => `<div><h3>${esc(s.titulo)}</h3><ul class="check">${s.itens
             .map((it, ii) => {
               const m = items.get(`pb.${si}.${ii}`);
-              return `<li class="${m?.done ? 'done' : ''}">${esc(it.texto)}${m?.done ? `<span class="who">${esc(names[m.doneBy] || '')}</span>` : ''}</li>`;
+              const t = cards.get(`pb.${si}.${ii}`);
+              const due = t && !m?.done ? dueInfo(t.due) : null;
+              const task = t?.assignee_id && !m?.done ? `<span class="task ${due?.tone === 'late' ? 'late' : ''}">com ${esc((names[t.assignee_id] || 'alguém').split(' ')[0])}${due ? ` · ${esc(due.tone === 'late' ? due.text : `prazo ${due.label}`)}` : ''}</span>` : '';
+              return `<li class="${m?.done ? 'done' : ''}">${esc(it.texto)}${m?.done ? `<span class="who">${esc(names[m.doneBy] || '')}</span>` : task}</li>`;
             })
             .join('')}</ul></div>`,
         )
@@ -264,19 +367,7 @@ export async function exportDossie(data, line, user) {
 
   // 09 Simulador
   const sim = simulate(docs.simulador, data.prices);
-  pages.push(`<section class="page">${head(def.simulador, byId.simulador, 'Simulador de custo')}${
-    sim
-      ? `<div class="grid">${[
-          ['Leads por mês', num(sim.leads)],
-          ['Custo por lead', brl(sim.porLead)],
-          ['Custo no mês', brl(sim.total)],
-          ['Reuniões por mês', num(sim.reunioes, 1)],
-          ['Custo por reunião', sim.reunioes > 0 ? brl(sim.porReuniao) : 'sem dado'],
-        ]
-          .map(([k, v]) => `<div class="card"><div class="label">${esc(k)}</div><div class="big">${esc(v)}</div></div>`)
-          .join('')}</div><p class="muted">Preços por mensagem ${data.prices ? `da tabela definida em ${dateLabel(data.prices.updated_at)}` : 'informados no simulador'}.</p>`
-      : pending('O cenário de custo')
-  }</section>`);
+  pages.push(`<section class="page">${head(def.simulador, byId.simulador, 'Simulador de custo')}${sim ? simulatorHtml(sim, data.prices) : pending('O cenário de custo')}</section>`);
 
   // Bônus
   const c = docs.conteudo;
@@ -287,11 +378,12 @@ export async function exportDossie(data, line, user) {
   // Mural
   const done = pastas.flatMap((p) => p.missions.filter((m) => m.done)).length;
   const total = pastas.flatMap((p) => p.missions).length;
-  pages.push(`<section class="page"><div class="head"><div><div class="label">Mural do time</div><h2>Placar do caso</h2></div><span class="stamp s-blue">${esc(game.level.name)}</span></div>
+  // O mural segue na mesma folha quando cabe, sem abrir página quase vazia.
+  pages.push(`<section class="page flow"><div class="head"><div><div class="label">Mural do time</div><h2>Placar do caso</h2></div><span class="stamp s-blue">${esc(game.level.name)}</span></div>
     <div class="grid"><div class="card"><div class="label">XP do caso</div><div class="big">${game.xp} XP</div></div><div class="card"><div class="label">Missões cumpridas nesta linha</div><div class="big">${done} de ${total}</div></div></div>
-    <h3>Ranking</h3><ol class="rank">${game.ranking.map((rk) => `<li><b>${esc(names[rk.userId] || 'Ex-participante')}</b> · ${rk.xp} XP</li>`).join('') || '<li class="muted">Ninguém pontuou ainda.</li>'}</ol>
-    <h3>Últimos registros</h3>${ul(data.activity.slice(0, 12).map((a) => `${a.name} ${a.text}${a.xp ? ` (+${a.xp} XP)` : ''} · ${dateLabel(a.created_at)}`))}
-    <div class="note">Este dossiê é um retrato do caso em ${dateLabel(Date.now())}. O jogo continua no sistema.</div>
+    <div class="mural-cols"><div><h3>Ranking</h3><ol class="rank">${game.ranking.map((rk) => `<li><b>${esc(names[rk.userId] || 'Ex-participante')}</b> · ${rk.xp} XP</li>`).join('') || '<li class="muted">Ninguém pontuou ainda.</li>'}</ol></div>
+    <div><h3>Últimos registros</h3>${ul(data.activity.slice(0, 4).map((a) => `${a.name} ${a.text}${a.xp ? ` (+${a.xp} XP)` : ''} · ${dateLabel(a.created_at)}`))}</div></div>
+    <div class="end"><div class="note">Este dossiê é um retrato do caso em ${dateLabel(Date.now())}. O jogo continua no sistema.</div>${brand}</div>
   </section>`);
 
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Dossiê ICP · ${esc(project.name)} · ${esc(line.data?.nome || '')}</title>

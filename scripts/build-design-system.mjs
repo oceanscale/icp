@@ -20,7 +20,7 @@ writeFileSync(
   join(tmp, 'react-shim.js'),
   `const R = window.React;
 export default R;
-export const { Fragment, createElement, useRef, useState, useEffect } = R;
+export const { Fragment, createElement, useRef, useState, useEffect, useLayoutEffect } = R;
 `,
 );
 writeFileSync(

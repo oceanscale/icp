@@ -3,6 +3,8 @@ import { Button, CaseFile, CheckMark, Field, Stamp } from '../ds/index.jsx';
 import { PASTAS } from '../../shared/game.js';
 import { api } from '../lib/api.js';
 import { navigate } from '../lib/nav.js';
+import Detective from '../components/Detective.jsx';
+import SeaAds from '../components/SeaAds.jsx';
 
 const TITLE = 'Dossiê ICP';
 const TAGLINE = 'Cada empresa é um caso a resolver.';
@@ -228,6 +230,7 @@ export default function Landing({ mode, onLogin, theme, onToggleTheme }) {
             <span className="dq-label">Nível do caso</span>
             <span className="lp-level-name">{index >= PASTAS.length ? 'Escalável' : index >= 7 ? 'Previsível' : index >= 5 ? 'Processo definido' : index >= 2 ? 'Estruturando' : 'Improviso'}</span>
           </p>
+          <Detective />
         </div>
 
         <div className="lp-right">
@@ -238,6 +241,7 @@ export default function Landing({ mode, onLogin, theme, onToggleTheme }) {
             caseNo={showSetup ? 'Primeiro acesso' : showRecover ? 'Recuperação' : 'Ficha de acesso'}
             title={showSetup ? 'Abrir o arquivo' : showRecover ? 'Recuperar acesso' : 'Entrar no dossiê'}
           >
+            {mode === 'tarefa' ? <p className="small callout-inline">Entre com a sua conta para assumir a tarefa que o gestor delegou para o time.</p> : null}
             {showSetup ? <SetupForm onLogin={onLogin} /> : showRecover ? <RecoverForm onLogin={onLogin} configured={setup?.tokenConfigured} /> : <LoginForm onLogin={onLogin} />}
             {setup?.needsSetup && !showSetup ? (
               <p className="small" style={{ marginTop: 'var(--space-4)' }}>
@@ -269,7 +273,10 @@ export default function Landing({ mode, onLogin, theme, onToggleTheme }) {
           </article>
         ))}
       </section>
-      <footer className="lp-foot dq-label">Dossiê ICP · estruturação comercial</footer>
+      <footer className="lp-foot lp-foot-brand">
+        <span className="dq-label">Dossiê ICP · estruturação comercial</span>
+        <SeaAds />
+      </footer>
     </div>
   );
 }

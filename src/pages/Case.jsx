@@ -7,6 +7,7 @@ import Missions from '../components/Missions.jsx';
 import Mural from '../components/Mural.jsx';
 import Team from '../components/Team.jsx';
 import Celebration from '../components/Celebration.jsx';
+import CaseBoard from '../components/CaseBoard.jsx';
 import Empresa from '../pastas/Empresa.jsx';
 import Icp from '../pastas/Icp.jsx';
 import Playbook from '../pastas/Playbook.jsx';
@@ -43,6 +44,35 @@ function Locked({ pastas, index }) {
   );
 }
 
+/** Anterior e próxima pasta no fim de cada pasta, para seguir o tabuleiro sem voltar ao topo. */
+function PastaNav({ pastas, index, onGo }) {
+  const prev = index > 0 ? index - 1 : -1;
+  const next = index < ALL_PASTAS.length - 1 ? index + 1 : -1;
+  const label = (i) => (ALL_PASTAS[i].bonus ? `Bônus · ${ALL_PASTAS[i].label}` : `${ALL_PASTAS[i].code} ${ALL_PASTAS[i].label}`);
+  const go = (i) => {
+    onGo(ALL_PASTAS[i].id);
+    document.querySelector('.case-main')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  return (
+    <nav className="pasta-nav" aria-label="Navegar entre as pastas">
+      {prev >= 0 ? (
+        <button type="button" className="pasta-nav-btn" onClick={() => go(prev)}>
+          <span className="dq-label">Pasta anterior</span>
+          <span className="pasta-nav-name">← {label(prev)}</span>
+        </button>
+      ) : (
+        <span />
+      )}
+      {next >= 0 ? (
+        <button type="button" className={`pasta-nav-btn pasta-nav-next ${pastas[next]?.state === 'locked' ? 'is-locked' : ''}`} onClick={() => go(next)}>
+          <span className="dq-label">{pastas[next]?.state === 'locked' ? 'Próxima pasta · trancada' : 'Próxima pasta'}</span>
+          <span className="pasta-nav-name">{label(next)} →</span>
+        </button>
+      ) : null}
+    </nav>
+  );
+}
+
 function NoLine() {
   return (
     <div className="locked">
@@ -76,6 +106,7 @@ export default function CasePage({ route, user }) {
   const [error, setError] = useState('');
   const [lineId, setLineId] = useState(route.lid && route.lid !== '-' ? route.lid : null);
   const [pasta, setPasta] = useState(VIEWS[route.pasta] ? route.pasta : 'empresa');
+  const [board, setBoard] = useState(route.pasta === 'quadro');
   const [celebrate, setCelebrate] = useState(null);
   const dataRef = useRef(null);
   const pid = route.pid;
@@ -110,8 +141,8 @@ export default function CasePage({ route, user }) {
 
   // Endereço do navegador acompanha a linha e a pasta, sem criar histórico a cada clique.
   useEffect(() => {
-    history.replaceState(null, '', `#/caso/${pid}/${lineId || '-'}/${pasta}`);
-  }, [pid, lineId, pasta]);
+    history.replaceState(null, '', `#/caso/${pid}/${lineId || '-'}/${board ? 'quadro' : pasta}`);
+  }, [pid, lineId, pasta, board]);
 
   if (error) {
     return (
@@ -138,7 +169,13 @@ export default function CasePage({ route, user }) {
   let content;
   if (!line && pasta !== 'empresa') content = <NoLine />;
   else if (current.state === 'locked') content = <Locked pastas={pastas} index={index} />;
-  else content = <View data={data} line={line} lineId={lineId} pasta={current} onUpdate={update} user={user} goTo={setPasta} />;
+  else content = <View data={data} line={line} lineId={lineId} pasta={current} onUpdate={update} user={user} goTo={setPasta} openBoard={() => setBoard(true)} />;
+  const openPasta = (id) => {
+    setBoard(false);
+    setPasta(id);
+  };
+  const cards = data.board?.cards || [];
+  const mine = cards.filter((c) => c.assignee_id === data.me.id && c.status !== 'done').length;
 
   return (
     <div className="page case-page">
@@ -173,22 +210,40 @@ export default function CasePage({ route, user }) {
           level={game.level.label}
           xp={game.xp}
           nextXp={game.level.next}
-          onStep={(id) => setPasta(id)}
+          onStep={openPasta}
         />
       </CaseFile>
 
-      <div className="case-body">
-        <div className="case-main">
-          <FolderTabs tabs={tabs} active={pasta} onChange={setPasta} idBase="pasta">
-            {content}
-          </FolderTabs>
-        </div>
-        <aside className="case-aside" aria-label="Missões e time">
-          <Missions data={data} pasta={current} lineId={lineId} onUpdate={update} />
-          <Mural data={data} />
-          <Team data={data} onUpdate={update} />
-        </aside>
+      <div className="case-switch" role="group" aria-label="O que ver">
+        <button type="button" className={`case-switch-btn ${!board ? 'is-on' : ''}`} aria-pressed={!board} onClick={() => setBoard(false)}>
+          Pastas do caso
+        </button>
+        <button type="button" className={`case-switch-btn ${board ? 'is-on' : ''}`} aria-pressed={board} onClick={() => setBoard(true)}>
+          Quadro do time
+          <span className="case-switch-count">{cards.filter((c) => c.status !== 'done').length}</span>
+          {mine ? <span className="case-switch-mine">{mine} com você</span> : null}
+        </button>
       </div>
+
+      {board ? (
+        <div className="case-board-wrap">
+          <CaseBoard data={data} onUpdate={update} />
+        </div>
+      ) : (
+        <div className="case-body">
+          <div className="case-main">
+            <FolderTabs tabs={tabs} active={pasta} onChange={setPasta} idBase="pasta" arrows>
+              {content}
+              <PastaNav pastas={pastas} index={index} onGo={setPasta} />
+            </FolderTabs>
+          </div>
+          <aside className="case-aside" aria-label="Missões e time">
+            <Missions data={data} pasta={current} lineId={lineId} onUpdate={update} />
+            <Team data={data} onUpdate={update} />
+            <Mural data={data} />
+          </aside>
+        </div>
+      )}
       {celebrate ? <Celebration title={celebrate.title} subtitle={celebrate.subtitle} onDone={() => setCelebrate(null)} /> : null}
     </div>
   );

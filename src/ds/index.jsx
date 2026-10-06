@@ -1,6 +1,6 @@
 // Componentes do Design System Dossiê ICP. Fonte única: o app importa daqui e
 // scripts/build-design-system.mjs empacota este arquivo como window.Dossie para o Design System publicado.
-import React, { useRef } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 
 const cx = (...parts) => parts.filter(Boolean).join(' ');
 const srOnly = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
@@ -29,9 +29,43 @@ export function Stamp({ tone = 'blue', tilt = true, className, children }) {
 }
 
 /** As pastas numeradas do dossiê. Controlado por active/onChange; pastas trancadas continuam navegáveis. */
-export function FolderTabs({ tabs = [], active, onChange, label = 'Pastas do dossiê', idBase = 'dq-folder', className, children }) {
+export function FolderTabs({ tabs = [], active, onChange, label = 'Pastas do dossiê', idBase = 'dq-folder', arrows = false, className, children }) {
   const refs = useRef({});
+  const list = useRef(null);
+  const [compact, setCompact] = useState(false);
   const current = active ?? tabs[0]?.id;
+  const index = tabs.findIndex((t) => t.id === current);
+  const labels = tabs.map((t) => t.label + (t.done ? '+' : '')).join('|');
+
+  // Quando as abas não cabem, só a aba aberta mostra o nome; as outras ficam com o código.
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!el) return undefined;
+    const check = () => {
+      const was = el.classList.contains('dq-tabs-compact');
+      el.classList.remove('dq-tabs-compact');
+      const overflow = el.scrollWidth > el.clientWidth + 1;
+      if (was) el.classList.add('dq-tabs-compact');
+      setCompact(overflow);
+    };
+    check();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [labels]);
+
+  // A aba aberta sempre fica visível na faixa.
+  useLayoutEffect(() => {
+    const el = list.current;
+    const tab = refs.current[current];
+    if (!el || !tab) return;
+    const t = tab.getBoundingClientRect();
+    const c = el.getBoundingClientRect();
+    if (t.left < c.left) el.scrollLeft -= c.left - t.left + 12;
+    else if (t.right > c.right) el.scrollLeft += t.right - c.right + 12;
+  }, [current, compact]);
+
   const go = (i) => {
     const t = tabs[(i + tabs.length) % tabs.length];
     if (!t) return;
@@ -47,38 +81,50 @@ export function FolderTabs({ tabs = [], active, onChange, label = 'Pastas do dos
   };
   return (
     <div className={cx('dq-folder', className)}>
-      <div className="dq-tabs" role="tablist" aria-label={label}>
-        {tabs.map((t, i) => {
-          const sel = t.id === current;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`${idBase}-tab-${t.id}`}
-              aria-selected={sel ? 'true' : 'false'}
-              aria-controls={`${idBase}-panel`}
-              tabIndex={sel ? 0 : -1}
-              className={cx('dq-tab', t.locked && !sel && 'dq-tab-locked')}
-              title={t.code ? `${t.code} ${t.label}` : t.label}
-              ref={(el) => {
-                refs.current[t.id] = el;
-              }}
-              onClick={() => onChange?.(t.id)}
-              onKeyDown={(e) => onKey(e, i)}
-            >
-              {t.code ? <span className="dq-tab-code">{t.code}</span> : null}
-              <span className="dq-tab-label">{t.label}</span>
-              {t.done ? (
-                <span className="dq-tab-done" title="Pasta resolvida">
-                  <CheckMark />
-                  <span style={srOnly}>resolvida</span>
-                </span>
-              ) : null}
-              {t.locked ? <span style={srOnly}>trancada</span> : null}
+      <div className="dq-tabs-row">
+        <div className={cx('dq-tabs', compact && 'dq-tabs-compact')} role="tablist" aria-label={label} ref={list}>
+          {tabs.map((t, i) => {
+            const sel = t.id === current;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`${idBase}-tab-${t.id}`}
+                aria-selected={sel ? 'true' : 'false'}
+                aria-controls={`${idBase}-panel`}
+                tabIndex={sel ? 0 : -1}
+                className={cx('dq-tab', t.locked && !sel && 'dq-tab-locked')}
+                title={t.code ? `${t.code} ${t.label}` : t.label}
+                ref={(el) => {
+                  refs.current[t.id] = el;
+                }}
+                onClick={() => onChange?.(t.id)}
+                onKeyDown={(e) => onKey(e, i)}
+              >
+                {t.code ? <span className="dq-tab-code">{t.code}</span> : null}
+                <span className="dq-tab-label">{t.label}</span>
+                {t.done ? (
+                  <span className="dq-tab-done" title="Pasta resolvida">
+                    <CheckMark />
+                    <span style={srOnly}>resolvida</span>
+                  </span>
+                ) : null}
+                {t.locked ? <span style={srOnly}>trancada</span> : null}
+              </button>
+            );
+          })}
+        </div>
+        {arrows ? (
+          <div className="dq-tabs-arrows">
+            <button type="button" className="dq-tabs-arrow" aria-label={index > 0 ? `Pasta anterior: ${tabs[index - 1].label}` : 'Pasta anterior'} title={index > 0 ? `${tabs[index - 1].code || ''} ${tabs[index - 1].label}`.trim() : undefined} disabled={index <= 0} onClick={() => onChange?.(tabs[index - 1].id)}>
+              ‹
             </button>
-          );
-        })}
+            <button type="button" className="dq-tabs-arrow" aria-label={index < tabs.length - 1 ? `Próxima pasta: ${tabs[index + 1].label}` : 'Próxima pasta'} title={index < tabs.length - 1 ? `${tabs[index + 1].code || ''} ${tabs[index + 1].label}`.trim() : undefined} disabled={index < 0 || index >= tabs.length - 1} onClick={() => onChange?.(tabs[index + 1].id)}>
+              ›
+            </button>
+          </div>
+        ) : null}
       </div>
       {children != null ? (
         <div className="dq-tabpanel" role="tabpanel" id={`${idBase}-panel`} aria-labelledby={`${idBase}-tab-${current}`} tabIndex={0}>
@@ -194,6 +240,7 @@ export function Checklist({ title, items = [], onToggle, unit = 'itens', classNa
                 {it.hint ? <span className="dq-check-hint">{it.hint}</span> : null}
                 {it.meta ? <span className="dq-check-meta">{it.meta}</span> : null}
               </span>
+              {it.aside ? <span className="dq-check-aside">{it.aside}</span> : null}
             </li>
           );
         })}
